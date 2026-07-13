@@ -1,0 +1,6 @@
+{
+  "name": "BeatFlow",
+  "description": "BeatFlow is a premium, offline-first local music player with a beautiful Glassmorphism design and powerful statistics, playlist management, and sleeping timers.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

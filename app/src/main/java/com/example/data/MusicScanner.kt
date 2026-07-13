@@ -1,0 +1,315 @@
+package com.example.data
+
+import android.content.Context
+import android.database.Cursor
+import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
+import android.util.Log
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
+
+object MusicScanner {
+    private const val TAG = "MusicScanner"
+
+    suspend fun scanMusic(
+        context: Context,
+        songDao: SongDao,
+        settings: BeatFlowSettings
+    ): Int = withContext(Dispatchers.IO) {
+        Log.d(TAG, "Starting Smart Music Scan...")
+        var scannedCount = 0
+
+        // 1. Ensure our beautiful 3 synthesized tracks are seeded in external sandbox
+        val seededFiles = try {
+            ProceduralAudioGenerator.seedMusicIfEmpty(context)
+        } catch (e: Exception) {
+            Log.e(TAG, "Seeding files failed, using empty list", e)
+            emptyList()
+        }
+
+        val songsToInsert = mutableListOf<Song>()
+        val existingPaths = mutableSetOf<String>()
+
+        // Helper to check filters
+        fun passesFilters(file: File, durationMs: Long, sizeBytes: Long): Boolean {
+            if (settings.ignoreShorterThan1Min && durationMs < 60000) return false
+            if (settings.ignoreSmallerThan100KB && sizeBytes < 100000) return false
+            if (settings.ignoreHidden) {
+                if (file.name.startsWith(".") || file.parentFile?.name?.startsWith(".") == true) return false
+            }
+            return true
+        }
+
+        // 2. Add seeded files to database list
+        for (file in seededFiles) {
+            val path = file.absolutePath
+            if (existingPaths.contains(path)) continue
+            
+            // Query DB to see if already scanned
+            val existingInDb = songDao.getSongByPath(path)
+            if (existingInDb != null && settings.ignoreDuplicates) {
+                existingPaths.add(path)
+                continue
+            }
+
+            val durationMs = 65000L // 65 seconds
+            val sizeBytes = file.length()
+            
+            if (passesFilters(file, durationMs, sizeBytes)) {
+                val title = when (file.name) {
+                    "sunset_chill.wav" -> "Sunset Chill"
+                    "cyber_pulse.wav" -> "Cyber Pulse"
+                    "midnight_rain.wav" -> "Midnight Rain"
+                    else -> file.nameWithoutExtension.capitalize()
+                }
+                
+                val genre = when (file.name) {
+                    "sunset_chill.wav" -> "Ambient Pentatonic"
+                    "cyber_pulse.wav" -> "Synthwave"
+                    "midnight_rain.wav" -> "Atmospheric Rain"
+                    else -> "Procedural Lo-Fi"
+                }
+
+                val song = Song(
+                    path = path,
+                    title = title,
+                    artist = "Mohan Parmar",
+                    album = "BeatFlow Anthems",
+                    genre = genre,
+                    duration = durationMs,
+                    size = sizeBytes,
+                    dateAdded = file.lastModified(),
+                    folderName = file.parentFile?.name ?: "BeatFlow",
+                    artworkUri = null
+                )
+                songsToInsert.add(song)
+                existingPaths.add(path)
+                scannedCount++
+            }
+        }
+
+        // 2.5 Scan custom user folders forcefully from direct filesystem path
+        val customFolderPath = settings.customScanFolderPath
+        if (customFolderPath.isNotBlank()) {
+            try {
+                val customFolder = File(customFolderPath)
+                if (customFolder.exists() && customFolder.isDirectory) {
+                    Log.d(TAG, "Force Scanning custom folder directly: $customFolderPath")
+                    scanDirectory(customFolder, songDao, settings, existingPaths, songsToInsert)
+                } else {
+                    Log.w(TAG, "Custom scan folder does not exist or is not a directory: $customFolderPath")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error force scanning custom folder: $customFolderPath", e)
+            }
+        }
+
+        // 2.7 Force Scan the entire primary external storage directory recursively (e.g., /sdcard or /storage/emulated/0)
+        try {
+            val root = Environment.getExternalStorageDirectory()
+            if (root != null && root.exists() && root.isDirectory) {
+                Log.d(TAG, "Force scanning entire external storage recursively: ${root.absolutePath}")
+                scanDirectory(root, songDao, settings, existingPaths, songsToInsert)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error force scanning primary external storage root", e)
+        }
+
+        // 2.8 Scan secondary storage volumes (like SD Cards or OTG drives) mounted under /storage
+        try {
+            val storageDir = File("/storage")
+            if (storageDir.exists() && storageDir.isDirectory) {
+                val volumes = storageDir.listFiles()
+                if (volumes != null) {
+                    for (volume in volumes) {
+                        if (volume.isDirectory && !volume.name.equals("self", ignoreCase = true) && !volume.name.equals("emulated", ignoreCase = true)) {
+                            Log.d(TAG, "Scanning secondary storage volume recursively: ${volume.absolutePath}")
+                            scanDirectory(volume, songDao, settings, existingPaths, songsToInsert)
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error scanning secondary storage volumes", e)
+        }
+
+        // 3. Scan system MediaStore for real user songs (requires storage permissions)
+        try {
+            val collectionUri: Uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
+            } else {
+                MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+            }
+
+            val projection = arrayOf(
+                MediaStore.Audio.Media._ID,
+                MediaStore.Audio.Media.DATA,
+                MediaStore.Audio.Media.TITLE,
+                MediaStore.Audio.Media.ARTIST,
+                MediaStore.Audio.Media.ALBUM,
+                MediaStore.Audio.Media.DURATION,
+                MediaStore.Audio.Media.SIZE,
+                MediaStore.Audio.Media.DATE_ADDED
+            )
+
+            // Retrieve ALL audio indexed by the MediaStore (including WhatsApp, voice notes, audio recordings, podcasts)
+            val selection = null
+
+            context.contentResolver.query(
+                collectionUri,
+                projection,
+                selection,
+                null,
+                null
+            )?.use { cursor ->
+                val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+                val pathCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+                val titleCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
+                val artistCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
+                val albumCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
+                val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+                val sizeCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.SIZE)
+                val dateCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_ADDED)
+
+                while (cursor.moveToNext()) {
+                    val path = cursor.getString(pathCol) ?: continue
+                    if (existingPaths.contains(path)) continue
+
+                    val file = File(path)
+                    val duration = cursor.getLong(durationCol)
+                    val size = cursor.getLong(sizeCol)
+
+                    if (passesFilters(file, duration, size)) {
+                        val title = cursor.getString(titleCol) ?: file.nameWithoutExtension
+                        val artist = cursor.getString(artistCol) ?: "Unknown Artist"
+                        val album = cursor.getString(albumCol) ?: "Unknown Album"
+                        val dateAdded = cursor.getLong(dateCol) * 1000 // Convert to ms
+
+                        val existingInDb = songDao.getSongByPath(path)
+                        if (existingInDb != null && settings.ignoreDuplicates) {
+                            existingPaths.add(path)
+                            continue
+                        }
+
+                        val albumId = cursor.getLong(cursor.getColumnIndex(MediaStore.Audio.Media.ALBUM_ID) ?: -1)
+                        val artworkUri = if (albumId != -1L) {
+                            "content://media/external/audio/albumart/$albumId"
+                        } else {
+                            null
+                        }
+
+                        val song = Song(
+                            path = path,
+                            title = title,
+                            artist = artist,
+                            album = album,
+                            genre = "Local Audio",
+                            duration = duration,
+                            size = size,
+                            dateAdded = dateAdded,
+                            folderName = file.parentFile?.name ?: "Downloads",
+                            artworkUri = artworkUri
+                        )
+                        songsToInsert.add(song)
+                        existingPaths.add(path)
+                        scannedCount++
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error scanning MediaStore", e)
+        }
+
+        if (songsToInsert.isNotEmpty()) {
+            songDao.insertSongs(songsToInsert)
+            Log.d(TAG, "Successfully scanned and added ${songsToInsert.size} songs to Room Database.")
+        } else {
+            Log.d(TAG, "No new songs found that match filter criteria.")
+        }
+
+        songsToInsert.size
+    }
+
+    private suspend fun scanDirectory(
+        directory: File,
+        songDao: SongDao,
+        settings: BeatFlowSettings,
+        existingPaths: MutableSet<String>,
+        songsToInsert: MutableList<Song>
+    ) {
+        val files = directory.listFiles() ?: return
+        val audioExtensions = setOf("mp3", "wav", "m4a", "flac", "ogg", "aac")
+        for (file in files) {
+            if (file.isDirectory) {
+                if (settings.ignoreHidden && file.name.startsWith(".")) continue
+                // Skip the "Android" folder completely to prevent OS-level permission blocks and extremely slow scans of private app caches
+                if (file.name.equals("Android", ignoreCase = true)) continue
+                scanDirectory(file, songDao, settings, existingPaths, songsToInsert)
+            } else if (file.isFile) {
+                val ext = file.extension.lowercase()
+                if (ext in audioExtensions) {
+                    val path = file.absolutePath
+                    if (existingPaths.contains(path)) continue
+
+                    val existingInDb = songDao.getSongByPath(path)
+                    if (existingInDb != null && settings.ignoreDuplicates) {
+                        existingPaths.add(path)
+                        continue
+                    }
+
+                    val sizeBytes = file.length()
+                    if (settings.ignoreSmallerThan100KB && sizeBytes < 100000) continue
+                    if (settings.ignoreHidden && file.name.startsWith(".")) continue
+
+                    var durationMs = 180000L // 3 mins fallback
+                    var songTitle = file.nameWithoutExtension
+                    var songArtist = "Local Artist"
+                    var songAlbum = "Local Album"
+                    try {
+                        val retriever = android.media.MediaMetadataRetriever()
+                        retriever.setDataSource(path)
+                        val durationStr = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
+                        if (durationStr != null) {
+                            durationMs = durationStr.toLong()
+                        }
+                        val titleStr = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_TITLE)
+                        if (!titleStr.isNullOrBlank()) {
+                            songTitle = titleStr
+                        }
+                        val artistStr = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_ARTIST)
+                        if (!artistStr.isNullOrBlank()) {
+                            songArtist = artistStr
+                        }
+                        val albumStr = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_ALBUM)
+                        if (!albumStr.isNullOrBlank()) {
+                            songAlbum = albumStr
+                        }
+                        retriever.release()
+                    } catch (e: Exception) {
+                        // ignore
+                    }
+
+                    if (settings.ignoreShorterThan1Min && durationMs < 60000) continue
+
+                    val song = Song(
+                        path = path,
+                        title = songTitle,
+                        artist = songArtist,
+                        album = songAlbum,
+                        genre = "Local Audio",
+                        duration = durationMs,
+                        size = sizeBytes,
+                        dateAdded = file.lastModified(),
+                        folderName = file.parentFile?.name ?: "CustomFolder",
+                        artworkUri = null
+                    )
+                    songsToInsert.add(song)
+                    existingPaths.add(path)
+                }
+            }
+        }
+    }
+}
