@@ -14,6 +14,19 @@ import java.io.File
 object MusicScanner {
     private const val TAG = "MusicScanner"
 
+    private fun getSongUniqueKey(title: String, artist: String): String {
+        val cleanTitle = title.lowercase().trim()
+        val cleanArtist = artist.lowercase().trim()
+            .replace("unknown artist", "")
+            .replace("unknown", "")
+            .replace("local artist", "")
+        return if (cleanArtist.isEmpty()) {
+            cleanTitle
+        } else {
+            "$cleanTitle|$cleanArtist"
+        }
+    }
+
     suspend fun scanMusic(
         context: Context,
         songDao: SongDao,
@@ -43,8 +56,15 @@ object MusicScanner {
             Log.e(TAG, "Failed to delete sample songs from DB", e)
         }
 
+        val allExistingSongs = try {
+            songDao.getAllSongsSync()
+        } catch (e: Exception) {
+            emptyList()
+        }
+
         val songsToInsert = mutableListOf<Song>()
-        val existingPaths = mutableSetOf<String>()
+        val existingPaths = allExistingSongs.map { it.path.lowercase().trim() }.toMutableSet()
+        val existingKeys = allExistingSongs.map { getSongUniqueKey(it.title, it.artist) }.filter { it.isNotEmpty() }.toMutableSet()
 
         // Helper to check filters
         fun passesFilters(file: File, durationMs: Long, sizeBytes: Long): Boolean {
@@ -63,7 +83,7 @@ object MusicScanner {
                 val customFolder = File(customFolderPath)
                 if (customFolder.exists() && customFolder.isDirectory) {
                     Log.d(TAG, "Force Scanning custom folder directly: $customFolderPath")
-                    scanDirectory(customFolder, songDao, settings, existingPaths, songsToInsert)
+                    scanDirectory(customFolder, songDao, settings, existingPaths, existingKeys, songsToInsert)
                 } else {
                     Log.w(TAG, "Custom scan folder does not exist or is not a directory: $customFolderPath")
                 }
@@ -77,7 +97,7 @@ object MusicScanner {
             val root = Environment.getExternalStorageDirectory()
             if (root != null && root.exists() && root.isDirectory) {
                 Log.d(TAG, "Force scanning entire external storage recursively: ${root.absolutePath}")
-                scanDirectory(root, songDao, settings, existingPaths, songsToInsert)
+                scanDirectory(root, songDao, settings, existingPaths, existingKeys, songsToInsert)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error force scanning primary external storage root", e)
@@ -92,7 +112,7 @@ object MusicScanner {
                     for (volume in volumes) {
                         if (volume.isDirectory && !volume.name.equals("self", ignoreCase = true) && !volume.name.equals("emulated", ignoreCase = true)) {
                             Log.d(TAG, "Scanning secondary storage volume recursively: ${volume.absolutePath}")
-                            scanDirectory(volume, songDao, settings, existingPaths, songsToInsert)
+                            scanDirectory(volume, songDao, settings, existingPaths, existingKeys, songsToInsert)
                         }
                     }
                 }
@@ -141,7 +161,8 @@ object MusicScanner {
 
                 while (cursor.moveToNext()) {
                     val path = cursor.getString(pathCol) ?: continue
-                    if (existingPaths.contains(path)) continue
+                    val pathLower = path.lowercase().trim()
+                    if (existingPaths.contains(pathLower)) continue
 
                     val file = File(path)
                     val duration = cursor.getLong(durationCol)
@@ -153,9 +174,13 @@ object MusicScanner {
                         val album = cursor.getString(albumCol) ?: "Unknown Album"
                         val dateAdded = cursor.getLong(dateCol) * 1000 // Convert to ms
 
+                        val key = getSongUniqueKey(title, artist)
+                        if (existingKeys.contains(key)) continue
+
                         val existingInDb = songDao.getSongByPath(path)
                         if (existingInDb != null && settings.ignoreDuplicates) {
-                            existingPaths.add(path)
+                            existingPaths.add(pathLower)
+                            existingKeys.add(key)
                             continue
                         }
 
@@ -179,7 +204,8 @@ object MusicScanner {
                             artworkUri = artworkUri
                         )
                         songsToInsert.add(song)
-                        existingPaths.add(path)
+                        existingPaths.add(pathLower)
+                        existingKeys.add(key)
                         scannedCount++
                     }
                 }
@@ -203,6 +229,7 @@ object MusicScanner {
         songDao: SongDao,
         settings: BeatFlowSettings,
         existingPaths: MutableSet<String>,
+        existingKeys: MutableSet<String>,
         songsToInsert: MutableList<Song>
     ) {
         val files = directory.listFiles() ?: return
@@ -212,16 +239,17 @@ object MusicScanner {
                 if (settings.ignoreHidden && file.name.startsWith(".")) continue
                 // Skip the "Android" folder completely to prevent OS-level permission blocks and extremely slow scans of private app caches
                 if (file.name.equals("Android", ignoreCase = true)) continue
-                scanDirectory(file, songDao, settings, existingPaths, songsToInsert)
+                scanDirectory(file, songDao, settings, existingPaths, existingKeys, songsToInsert)
             } else if (file.isFile) {
                 val ext = file.extension.lowercase()
                 if (ext in audioExtensions) {
                     val path = file.absolutePath
-                    if (existingPaths.contains(path)) continue
+                    val pathLower = path.lowercase().trim()
+                    if (existingPaths.contains(pathLower)) continue
 
                     val existingInDb = songDao.getSongByPath(path)
                     if (existingInDb != null && settings.ignoreDuplicates) {
-                        existingPaths.add(path)
+                        existingPaths.add(pathLower)
                         continue
                     }
 
@@ -257,6 +285,9 @@ object MusicScanner {
                         // ignore
                     }
 
+                    val key = getSongUniqueKey(songTitle, songArtist)
+                    if (existingKeys.contains(key)) continue
+
                     if (settings.ignoreShorterThan1Min && durationMs < 60000) continue
 
                     val song = Song(
@@ -272,7 +303,8 @@ object MusicScanner {
                         artworkUri = null
                     )
                     songsToInsert.add(song)
-                    existingPaths.add(path)
+                    existingPaths.add(pathLower)
+                    existingKeys.add(key)
                 }
             }
         }
