@@ -82,8 +82,8 @@ fun MainContainerScreen(
                 GlassCard(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(72.dp),
-                    cornerRadius = 36.dp,
+                        .height(64.dp),
+                    cornerRadius = 32.dp,
                     isGlassEnabled = settings.isGlassEnabled,
                     isDark = settings.isDarkMode
                 ) {
@@ -235,25 +235,18 @@ fun NavBarItem(
     accentColor: Color,
     onClick: () -> Unit
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
+    Box(
+        contentAlignment = Alignment.Center,
         modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
+            .size(48.dp)
+            .clip(CircleShape)
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 6.dp)
     ) {
         Icon(
             imageVector = icon,
             contentDescription = label,
             tint = if (isActive) accentColor else Color.White.copy(alpha = 0.4f),
-            modifier = Modifier.size(22.dp)
-        )
-        Text(
-            text = label,
-            fontSize = 10.sp,
-            fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
-            color = if (isActive) accentColor else Color.White.copy(alpha = 0.4f),
-            modifier = Modifier.padding(top = 4.dp)
+            modifier = Modifier.size(24.dp)
         )
     }
 }
