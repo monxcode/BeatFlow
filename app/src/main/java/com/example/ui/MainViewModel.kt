@@ -242,6 +242,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun createPlaylistAndAddSong(playlistName: String, songId: Long) {
+        viewModelScope.launch {
+            val playlistId = repository.createPlaylist(playlistName)
+            repository.addSongToPlaylist(playlistId, songId)
+        }
+    }
+
     fun removeSongFromPlaylist(playlistId: Long, songId: Long) {
         viewModelScope.launch {
             repository.removeSongFromPlaylist(playlistId, songId)
@@ -288,6 +295,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun updateCustomScanFolderPath(path: String) {
         viewModelScope.launch {
             repository.updateCustomScanFolderPath(path)
+        }
+    }
+
+    // Song actions from option menu
+    fun playNext(song: Song) {
+        PlaybackManager.insertIntoQueueNext(song)
+    }
+
+    fun deleteSong(song: Song) {
+        viewModelScope.launch {
+            repository.deleteSong(song)
+        }
+    }
+
+    fun updateSong(song: Song) {
+        viewModelScope.launch {
+            repository.updateSong(song)
+        }
+    }
+
+    fun renameSong(song: Song, newTitle: String, newArtist: String) {
+        viewModelScope.launch {
+            repository.updateSong(song.copy(title = newTitle, artist = newArtist))
         }
     }
 }

@@ -72,6 +72,14 @@ class MusicRepository(private val context: Context) {
         return songDao.getSongById(id)
     }
 
+    suspend fun deleteSong(song: Song) {
+        songDao.deleteSong(song)
+    }
+
+    suspend fun updateSong(song: Song) {
+        songDao.updateSong(song)
+    }
+
     // Playlist Operations
     suspend fun createPlaylist(name: String, description: String = ""): Long {
         return playlistDao.insertPlaylist(

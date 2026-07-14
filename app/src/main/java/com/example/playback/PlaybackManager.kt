@@ -243,6 +243,37 @@ object PlaybackManager {
         }
     }
 
+    fun insertIntoQueueNext(song: Song) {
+        val currentList = _queue.value.toMutableList()
+        val currentIndex = _currentQueueIndex.value
+        
+        // Remove existing occurrence if any
+        val existingIndex = currentList.indexOfFirst { it.id == song.id }
+        if (existingIndex != -1) {
+            currentList.removeAt(existingIndex)
+        }
+        
+        // Find new index of current song after removal
+        val adjustedCurrentIndex = if (currentIndex != -1) {
+            currentList.indexOfFirst { it.id == _currentSong.value?.id }
+        } else {
+            -1
+        }
+        
+        if (adjustedCurrentIndex == -1) {
+            // Queue is empty or no current song, add at start
+            currentList.add(0, song)
+            _queue.value = currentList
+            _currentQueueIndex.value = 0
+            _currentSong.value = song
+        } else {
+            // Add right after the current song
+            currentList.add(adjustedCurrentIndex + 1, song)
+            _queue.value = currentList
+            _currentQueueIndex.value = adjustedCurrentIndex
+        }
+    }
+
     fun removeFromQueue(songId: Long) {
         val currentList = _queue.value.toMutableList()
         val index = currentList.indexOfFirst { it.id == songId }

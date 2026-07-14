@@ -514,7 +514,8 @@ fun HomeScreenContent(
                         song = song,
                         settings = settings,
                         onPlay = { viewModel.playSong(song, filteredSongs) },
-                        onFavoriteToggle = { viewModel.toggleFavorite(song.id, !song.isFavorite) }
+                        onFavoriteToggle = { viewModel.toggleFavorite(song.id, !song.isFavorite) },
+                        viewModel = viewModel
                     )
                 }
             }
@@ -773,7 +774,8 @@ fun HomeScreenContent(
                             song = song,
                             settings = settings,
                             onPlay = { viewModel.playSong(song, sortedSongs) },
-                            onFavoriteToggle = { viewModel.toggleFavorite(song.id, !song.isFavorite) }
+                            onFavoriteToggle = { viewModel.toggleFavorite(song.id, !song.isFavorite) },
+                            viewModel = viewModel
                         )
                     }
                 }
@@ -844,7 +846,8 @@ fun HomeScreenContent(
                             song = song,
                             settings = settings,
                             onPlay = { viewModel.playSong(song, albumSongs) },
-                            onFavoriteToggle = { viewModel.toggleFavorite(song.id, !song.isFavorite) }
+                            onFavoriteToggle = { viewModel.toggleFavorite(song.id, !song.isFavorite) },
+                            viewModel = viewModel
                         )
                     }
                 }
@@ -913,7 +916,8 @@ fun HomeScreenContent(
                             song = song,
                             settings = settings,
                             onPlay = { viewModel.playSong(song, artistSongs) },
-                            onFavoriteToggle = { viewModel.toggleFavorite(song.id, !song.isFavorite) }
+                            onFavoriteToggle = { viewModel.toggleFavorite(song.id, !song.isFavorite) },
+                            viewModel = viewModel
                         )
                     }
                 }
@@ -994,7 +998,8 @@ fun HomeScreenContent(
                                 song = song,
                                 settings = settings,
                                 onPlay = { viewModel.playSong(song, playlistSongs) },
-                                onFavoriteToggle = { viewModel.toggleFavorite(song.id, !song.isFavorite) }
+                                onFavoriteToggle = { viewModel.toggleFavorite(song.id, !song.isFavorite) },
+                                viewModel = viewModel
                             )
                         }
                     }
@@ -1049,7 +1054,8 @@ fun FavoritesScreenContent(viewModel: MainViewModel) {
                         song = song,
                         settings = settings,
                         onPlay = { viewModel.playSong(song, favorites) },
-                        onFavoriteToggle = { viewModel.toggleFavorite(song.id, !song.isFavorite) }
+                        onFavoriteToggle = { viewModel.toggleFavorite(song.id, !song.isFavorite) },
+                        viewModel = viewModel
                     )
                 }
             }
@@ -2655,8 +2661,243 @@ fun SongListItem(
     song: Song,
     settings: BeatFlowSettings,
     onPlay: () -> Unit,
-    onFavoriteToggle: () -> Unit
+    onFavoriteToggle: () -> Unit,
+    viewModel: MainViewModel
 ) {
+    var expandedMenu by remember { mutableStateOf(false) }
+    var showRenameDialog by remember { mutableStateOf(false) }
+    var showInfoDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showPlaylistDialog by remember { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    val playlists by viewModel.playlists.collectAsStateWithLifecycle(initialValue = emptyList())
+
+    if (showRenameDialog) {
+        var tempTitle by remember { mutableStateOf(song.title) }
+        var tempArtist by remember { mutableStateOf(song.artist) }
+        AlertDialog(
+            onDismissRequest = { showRenameDialog = false },
+            title = { Text("Rename Song", color = Color.White, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = tempTitle,
+                        onValueChange = { tempTitle = it },
+                        label = { Text("Song Title") },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Accents[settings.accentColorIndex],
+                            unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
+                        ),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = tempArtist,
+                        onValueChange = { tempArtist = it },
+                        label = { Text("Artist") },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Accents[settings.accentColorIndex],
+                            unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
+                        ),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (tempTitle.isNotBlank() && tempArtist.isNotBlank()) {
+                            viewModel.renameSong(song, tempTitle.trim(), tempArtist.trim())
+                            android.widget.Toast.makeText(context, "Song renamed successfully", android.widget.Toast.LENGTH_SHORT).show()
+                            showRenameDialog = false
+                        }
+                    }
+                ) {
+                    Text("Save", color = Accents[settings.accentColorIndex], fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRenameDialog = false }) {
+                    Text("Cancel", color = Color.White.copy(alpha = 0.6f))
+                }
+            },
+            containerColor = Color(0xFF1E1E1E)
+        )
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Remove from Library", color = Color.White, fontWeight = FontWeight.Bold) },
+            text = { Text("Are you sure you want to remove '${song.title}' from your library? The database entry will be deleted, but the physical file won't be deleted.", color = Color.White.copy(alpha = 0.7f)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteSong(song)
+                        android.widget.Toast.makeText(context, "'${song.title}' removed", android.widget.Toast.LENGTH_SHORT).show()
+                        showDeleteDialog = false
+                    }
+                ) {
+                    Text("Remove", color = Color.Red, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancel", color = Color.White.copy(alpha = 0.6f))
+                }
+            },
+            containerColor = Color(0xFF1E1E1E)
+        )
+    }
+
+    if (showInfoDialog) {
+        val formattedDuration = remember(song.duration) {
+            val totalSeconds = song.duration / 1000
+            val minutes = totalSeconds / 60
+            val seconds = totalSeconds % 60
+            String.format("%02d:%02d", minutes, seconds)
+        }
+        val fileSize = remember(song.path) {
+            val file = java.io.File(song.path)
+            if (file.exists()) {
+                val bytes = file.length()
+                val kb = bytes / 1024.0
+                val mb = kb / 1024.0
+                if (mb >= 1.0) {
+                    String.format("%.2f MB", mb)
+                } else {
+                    String.format("%.2f KB", kb)
+                }
+            } else {
+                "Unknown"
+            }
+        }
+        AlertDialog(
+            onDismissRequest = { showInfoDialog = false },
+            title = { Text("Song Information", color = Color.White, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(
+                        "Title" to song.title,
+                        "Artist" to song.artist,
+                        "Album" to song.album,
+                        "Duration" to formattedDuration,
+                        "File Path" to song.path,
+                        "File Size" to fileSize
+                    ).forEach { (label, value) ->
+                        Column {
+                            Text(text = label, color = Color.White.copy(alpha = 0.4f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text(text = value, color = Color.White, fontSize = 13.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showInfoDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = Accents[settings.accentColorIndex])
+                ) {
+                    Text("OK", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            containerColor = Color(0xFF1E1E1E)
+        )
+    }
+
+    if (showPlaylistDialog) {
+        var newPlaylistName by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showPlaylistDialog = false },
+            title = { Text("Add to Playlist", color = Color.White, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = newPlaylistName,
+                            onValueChange = { newPlaylistName = it },
+                            label = { Text("New Playlist Name") },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = Accents[settings.accentColorIndex],
+                                unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
+                            ),
+                            singleLine = true,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(
+                            onClick = {
+                                if (newPlaylistName.isNotBlank()) {
+                                    viewModel.createPlaylistAndAddSong(newPlaylistName.trim(), song.id)
+                                    android.widget.Toast.makeText(context, "Created & added to '${newPlaylistName.trim()}'", android.widget.Toast.LENGTH_SHORT).show()
+                                    newPlaylistName = ""
+                                    showPlaylistDialog = false
+                                }
+                            },
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Accents[settings.accentColorIndex].copy(alpha = 0.1f))
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = "Create and Add", tint = Accents[settings.accentColorIndex])
+                        }
+                    }
+
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+
+                    Text("Or select existing:", color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+
+                    if (playlists.isEmpty()) {
+                        Text("No playlists created yet.", color = Color.White.copy(alpha = 0.4f), fontSize = 13.sp, modifier = Modifier.padding(vertical = 12.dp))
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 160.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(playlists) { playlist ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color.White.copy(alpha = 0.04f))
+                                        .clickable {
+                                            viewModel.addSongToPlaylist(playlist.id, song.id)
+                                            android.widget.Toast.makeText(context, "Added to '${playlist.name}'", android.widget.Toast.LENGTH_SHORT).show()
+                                            showPlaylistDialog = false
+                                        }
+                                        .padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Icon(Icons.Default.QueueMusic, contentDescription = null, tint = Accents[settings.accentColorIndex], modifier = Modifier.size(18.dp))
+                                    Text(playlist.name, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showPlaylistDialog = false }) {
+                    Text("Close", color = Color.White.copy(alpha = 0.6f))
+                }
+            },
+            containerColor = Color(0xFF1E1E1E)
+        )
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -2667,7 +2908,6 @@ fun SongListItem(
             .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Compact art preview
         Box(
             modifier = Modifier
                 .size(48.dp)
@@ -2705,7 +2945,6 @@ fun SongListItem(
             )
         }
 
-        // Action Keys (Favorite toggle)
         IconButton(onClick = onFavoriteToggle) {
             Icon(
                 imageVector = if (song.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
@@ -2713,6 +2952,141 @@ fun SongListItem(
                 tint = if (song.isFavorite) HotPink else Color.White.copy(alpha = 0.4f),
                 modifier = Modifier.size(20.dp)
             )
+        }
+
+        Box {
+            IconButton(onClick = { expandedMenu = true }) {
+                Icon(
+                    imageVector = Icons.Default.MoreVert,
+                    contentDescription = "More Options",
+                    tint = Color.White.copy(alpha = 0.6f),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            DropdownMenu(
+                expanded = expandedMenu,
+                onDismissRequest = { expandedMenu = false },
+                modifier = Modifier.background(Color(0xFF222222))
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Play Next", color = Color.White, fontSize = 13.sp) },
+                    onClick = {
+                        viewModel.playNext(song)
+                        android.widget.Toast.makeText(context, "Playing next: '${song.title}'", android.widget.Toast.LENGTH_SHORT).show()
+                        expandedMenu = false
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.QueueMusic,
+                            contentDescription = null,
+                            tint = Accents[settings.accentColorIndex],
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                )
+
+                DropdownMenuItem(
+                    text = { Text("Add to Playlist", color = Color.White, fontSize = 13.sp) },
+                    onClick = {
+                        showPlaylistDialog = true
+                        expandedMenu = false
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.PlaylistAdd,
+                            contentDescription = null,
+                            tint = Accents[settings.accentColorIndex],
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                )
+
+                DropdownMenuItem(
+                    text = { Text("Song Info", color = Color.White, fontSize = 13.sp) },
+                    onClick = {
+                        showInfoDialog = true
+                        expandedMenu = false
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = Accents[settings.accentColorIndex],
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                )
+
+                DropdownMenuItem(
+                    text = { Text("Rename", color = Color.White, fontSize = 13.sp) },
+                    onClick = {
+                        showRenameDialog = true
+                        expandedMenu = false
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = null,
+                            tint = Accents[settings.accentColorIndex],
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                )
+
+                DropdownMenuItem(
+                    text = { Text("Share", color = Color.White, fontSize = 13.sp) },
+                    onClick = {
+                        try {
+                            val intent = Intent(Intent.ACTION_SEND).apply {
+                                type = "audio/*"
+                                val file = java.io.File(song.path)
+                                if (file.exists()) {
+                                    val fileUri = androidx.core.content.FileProvider.getUriForFile(
+                                        context,
+                                        "com.example.fileprovider",
+                                        file
+                                    )
+                                    putExtra(Intent.EXTRA_STREAM, fileUri)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                } else {
+                                    putExtra(Intent.EXTRA_TEXT, "Listen to '${song.title}' by ${song.artist}")
+                                }
+                                putExtra(Intent.EXTRA_SUBJECT, song.title)
+                            }
+                            context.startActivity(Intent.createChooser(intent, "Share Music File"))
+                        } catch (e: Exception) {
+                            android.util.Log.e("SongListItem", "Failed to share song", e)
+                            android.widget.Toast.makeText(context, "Could not share file", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                        expandedMenu = false
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = null,
+                            tint = Accents[settings.accentColorIndex],
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                )
+
+                DropdownMenuItem(
+                    text = { Text("Remove from Library", color = Color.Red, fontSize = 13.sp) },
+                    onClick = {
+                        showDeleteDialog = true
+                        expandedMenu = false
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = null,
+                            tint = Color.Red,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                )
+            }
         }
     }
 }
