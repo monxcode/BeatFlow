@@ -10,10 +10,17 @@ import androidx.core.content.ContextCompat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.composed
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -501,7 +508,7 @@ fun HomeScreenContent(
                                     if (isSelected) Color.Transparent else Color.White.copy(alpha = 0.08f),
                                     RoundedCornerShape(50)
                                 )
-                                .clickable {
+                                .bounceClick {
                                     selectedCategory = cat
                                     selectedAlbum = null
                                     selectedArtist = null
@@ -1907,7 +1914,7 @@ fun LatestTrackCard(
             .clip(RoundedCornerShape(16.dp))
             .background(if (settings.isGlassEnabled) GlassDarkSurface.copy(alpha = 0.1f) else Color(0xFF1E1E1E))
             .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
-            .clickable(onClick = onPlay)
+            .bounceClick(onClick = onPlay)
             .padding(12.dp)
     ) {
         Column {
@@ -1962,7 +1969,7 @@ fun SongListItem(
             .clip(RoundedCornerShape(14.dp))
             .background(if (settings.isGlassEnabled) GlassDarkSurface.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.03f))
             .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(14.dp))
-            .clickable(onClick = onPlay)
+            .bounceClick(onClick = onPlay)
             .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -2159,7 +2166,7 @@ fun AlbumListItem(
             .clip(RoundedCornerShape(16.dp))
             .background(if (settings.isGlassEnabled) GlassDarkSurface.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.03f))
             .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
+            .bounceClick(onClick = onClick)
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -2225,7 +2232,7 @@ fun ArtistListItem(
             .clip(RoundedCornerShape(16.dp))
             .background(if (settings.isGlassEnabled) GlassDarkSurface.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.03f))
             .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
+            .bounceClick(onClick = onClick)
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -2291,7 +2298,7 @@ fun PlaylistListItemHome(
             .clip(RoundedCornerShape(16.dp))
             .background(if (settings.isGlassEnabled) GlassDarkSurface.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.03f))
             .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
+            .bounceClick(onClick = onClick)
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -2343,3 +2350,35 @@ fun PlaylistListItemHome(
         }
     }
 }
+
+fun Modifier.bounceClick(
+    enabled: Boolean = true,
+    onClick: () -> Unit
+): Modifier = composed {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.94f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "scale"
+    )
+
+    if (enabled) {
+        this
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clickable(
+                interactionSource = interactionSource,
+                indication = androidx.compose.foundation.LocalIndication.current,
+                onClick = onClick
+            )
+    } else {
+        this
+    }
+}
+
