@@ -9,6 +9,9 @@ import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.PickVisualMediaRequest
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.animation.*
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -84,6 +87,51 @@ val AvatarGradients = listOf(
     Brush.linearGradient(listOf(Color(0xFFFFB300), HotPink)),
     Brush.linearGradient(listOf(Color(0xFF8A2387), Color(0xFFE94057), Color(0xFFF27121)))
 )
+
+@Composable
+fun ProfileAvatar(
+    profileImagePath: String,
+    userName: String,
+    accentColorIndex: Int,
+    size: androidx.compose.ui.unit.Dp,
+    fontSize: androidx.compose.ui.unit.TextUnit,
+    modifier: Modifier = Modifier
+) {
+    val hasValidImage = remember(profileImagePath) {
+        profileImagePath.isNotEmpty()
+    }
+    
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(CircleShape)
+            .then(
+                if (hasValidImage) {
+                    Modifier.background(Color.DarkGray)
+                } else {
+                    val avatarIdx = accentColorIndex.coerceIn(0, AvatarGradients.size - 1)
+                    Modifier.background(AvatarGradients[avatarIdx])
+                }
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        if (hasValidImage) {
+            AsyncImage(
+                model = profileImagePath,
+                contentDescription = "Profile Picture",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            Text(
+                text = userName.take(1).uppercase(),
+                fontWeight = FontWeight.Bold,
+                color = Color.Black,
+                fontSize = fontSize
+            )
+        }
+    }
+}
 
 @Composable
 fun HomeScreenContent(
@@ -321,23 +369,16 @@ fun HomeScreenContent(
                 }
 
                 // Profile Avatar (Smaller size on scroll)
-                val avatarIdx = settings.accentColorIndex.coerceIn(0, AvatarGradients.size - 1)
                 val avatarSize = if (isScrolled) 36.dp else 48.dp
-                Box(
-                    modifier = Modifier
-                        .size(avatarSize)
-                        .clip(CircleShape)
-                        .background(AvatarGradients[avatarIdx])
-                        .clickable(onClick = onNavigateToProfile),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = settings.userName.take(1).uppercase(),
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black,
-                        fontSize = if (isScrolled) 13.sp else 18.sp
-                    )
-                }
+                val avatarFontSize = if (isScrolled) 13.sp else 18.sp
+                ProfileAvatar(
+                    profileImagePath = settings.profileImagePath,
+                    userName = settings.userName,
+                    accentColorIndex = settings.accentColorIndex,
+                    size = avatarSize,
+                    fontSize = avatarFontSize,
+                    modifier = Modifier.clickable(onClick = onNavigateToProfile)
+                )
             }
         }
 
@@ -1123,6 +1164,21 @@ fun ProfileScreenContent(viewModel: MainViewModel) {
     val context = LocalContext.current
     var isEditingName by remember { mutableStateOf(false) }
     var editedName by remember { mutableStateOf(settings.userName) }
+    var showPhotoOptionsDialog by remember { mutableStateOf(false) }
+
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                val flag = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                context.contentResolver.takePersistableUriPermission(uri, flag)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            viewModel.updateProfileImage(uri.toString())
+        }
+    }
 
     // Calculate aggregated statistics
     val totalPlayCount = remember(songs) { songs.sumOf { it.playCount } }
@@ -1165,29 +1221,18 @@ fun ProfileScreenContent(viewModel: MainViewModel) {
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Cyclic Avatar Selector
-                    val currentAvatarIdx = settings.accentColorIndex.coerceIn(0, AvatarGradients.size - 1)
+                    // Avatar Selector with Image picker
                     Box(
                         modifier = Modifier
                             .size(72.dp)
-                            .clip(CircleShape)
-                            .background(AvatarGradients[currentAvatarIdx])
-                            .clickable {
-                                // Cycle profile avatar by changing accent color
-                                val nextAccent = (settings.accentColorIndex + 1) % Accents.size
-                                viewModel.updateThemeSettings(
-                                    settings.isDarkMode,
-                                    settings.isAmoledMode,
-                                    settings.isGlassEnabled,
-                                    nextAccent
-                                )
-                            },
+                            .clickable { showPhotoOptionsDialog = true },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = settings.userName.take(1).uppercase(),
-                            fontWeight = FontWeight.Bold,
-                            color = Color.Black,
+                        ProfileAvatar(
+                            profileImagePath = settings.profileImagePath,
+                            userName = settings.userName,
+                            accentColorIndex = settings.accentColorIndex,
+                            size = 72.dp,
                             fontSize = 28.sp
                         )
                         Box(
@@ -1198,7 +1243,7 @@ fun ProfileScreenContent(viewModel: MainViewModel) {
                                 .align(Alignment.BottomEnd),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.Edit, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
+                            Icon(Icons.Default.CameraAlt, contentDescription = "Edit profile picture", tint = Color.White, modifier = Modifier.size(12.dp))
                         }
                     }
 
@@ -1366,6 +1411,45 @@ fun ProfileScreenContent(viewModel: MainViewModel) {
                 modifier = Modifier.fillMaxWidth()
             )
         }
+    }
+
+    if (showPhotoOptionsDialog) {
+        AlertDialog(
+            onDismissRequest = { showPhotoOptionsDialog = false },
+            title = { Text("Profile Photo", color = Color.White) },
+            text = { Text("Choose an option to update your profile picture.", color = Color.White.copy(alpha = 0.7f)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showPhotoOptionsDialog = false
+                        imagePickerLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    }
+                ) {
+                    Text("Choose from Gallery", color = Accents[settings.accentColorIndex], fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                Row {
+                    if (settings.profileImagePath.isNotEmpty()) {
+                        TextButton(
+                            onClick = {
+                                showPhotoOptionsDialog = false
+                                viewModel.updateProfileImage("")
+                            }
+                        ) {
+                            Text("Remove Photo", color = MaterialTheme.colorScheme.error)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    TextButton(onClick = { showPhotoOptionsDialog = false }) {
+                        Text("Cancel", color = Color.White.copy(alpha = 0.6f))
+                    }
+                }
+            },
+            containerColor = Color(0xFF1E1E1E)
+        )
     }
 }
 
