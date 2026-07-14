@@ -3,6 +3,20 @@ package com.example.ui.screens
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import android.graphics.Canvas
+import android.graphics.ImageDecoder
+import android.provider.MediaStore
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalDensity
+import java.io.File
+import java.io.FileOutputStream
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import android.Manifest
 import android.os.Build
 import android.content.pm.PackageManager
@@ -133,6 +147,12 @@ fun ProfileAvatar(
     }
 }
 
+enum class SongSortOrder {
+    NEW_ADD,
+    OLD_ADD,
+    A_Z
+}
+
 @Composable
 fun HomeScreenContent(
     viewModel: MainViewModel,
@@ -144,6 +164,16 @@ fun HomeScreenContent(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val filteredSongs by viewModel.filteredSongs.collectAsStateWithLifecycle()
+
+    var currentSortOrder by remember { mutableStateOf(SongSortOrder.NEW_ADD) }
+
+    val sortedSongs = remember(songs, currentSortOrder) {
+        when (currentSortOrder) {
+            SongSortOrder.NEW_ADD -> songs.sortedByDescending { it.dateAdded }
+            SongSortOrder.OLD_ADD -> songs.sortedBy { it.dateAdded }
+            SongSortOrder.A_Z -> songs.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title })
+        }
+    }
 
     var selectedCategory by remember { mutableStateOf("All") }
     var selectedAlbum by remember { mutableStateOf<String?>(null) }
@@ -646,17 +676,88 @@ fun HomeScreenContent(
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
-                        TextButton(onClick = { viewModel.triggerScan() }) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize), tint = Accents[settings.accentColorIndex])
-                                Spacer(Modifier.width(4.dp))
-                                Text("Rescan", color = Accents[settings.accentColorIndex], fontWeight = FontWeight.Bold)
+                        var expanded by remember { mutableStateOf(false) }
+                        Box {
+                            Row(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color.White.copy(alpha = 0.05f))
+                                    .border(
+                                        width = 1.dp,
+                                        color = Color.White.copy(alpha = 0.1f),
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                    .clickable { expanded = true }
+                                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Sort,
+                                    contentDescription = "Sort Options",
+                                    tint = Accents[settings.accentColorIndex],
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = "Sort by: " + when (currentSortOrder) {
+                                        SongSortOrder.NEW_ADD -> "New Add"
+                                        SongSortOrder.OLD_ADD -> "Old Add"
+                                        SongSortOrder.A_Z -> "A-Z"
+                                    },
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDropDown,
+                                    contentDescription = null,
+                                    tint = Color.White.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+
+                            DropdownMenu(
+                                expanded = expanded,
+                                onDismissRequest = { expanded = false },
+                                modifier = Modifier.background(Color(0xFF222222))
+                            ) {
+                                listOf(
+                                    SongSortOrder.NEW_ADD to "New Add",
+                                    SongSortOrder.OLD_ADD to "Old Add",
+                                    SongSortOrder.A_Z to "A-Z"
+                                ).forEach { (order, label) ->
+                                    val isSelected = currentSortOrder == order
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = label,
+                                                color = if (isSelected) Accents[settings.accentColorIndex] else Color.White,
+                                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                fontSize = 13.sp
+                                            )
+                                        },
+                                        onClick = {
+                                            currentSortOrder = order
+                                            expanded = false
+                                        },
+                                        leadingIcon = {
+                                            if (isSelected) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Check,
+                                                    contentDescription = null,
+                                                    tint = Accents[settings.accentColorIndex],
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
                 }
 
-                if (songs.isEmpty()) {
+                if (sortedSongs.isEmpty()) {
                     item {
                         EmptyStatePlaceholder(
                             title = "Your library is silent",
@@ -667,11 +768,11 @@ fun HomeScreenContent(
                         )
                     }
                 } else {
-                    items(songs, key = { it.id }) { song ->
+                    items(sortedSongs, key = { it.id }) { song ->
                         SongListItem(
                             song = song,
                             settings = settings,
-                            onPlay = { viewModel.playSong(song, songs) },
+                            onPlay = { viewModel.playSong(song, sortedSongs) },
                             onFavoriteToggle = { viewModel.toggleFavorite(song.id, !song.isFavorite) }
                         )
                     }
@@ -1153,6 +1254,297 @@ fun LibraryTabButton(text: String, isActive: Boolean, accentColor: Color, onClic
     }
 }
 
+fun loadDownscaledBitmap(context: Context, uri: Uri): Bitmap? {
+    return try {
+        val contentResolver = context.contentResolver
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            ImageDecoder.decodeBitmap(ImageDecoder.createSource(contentResolver, uri)) { decoder, info, _ ->
+                decoder.isMutableRequired = true
+                decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+                if (info.size.width > 1200 || info.size.height > 1200) {
+                    val ratio = info.size.width.toFloat() / info.size.height
+                    if (ratio > 1f) {
+                        decoder.setTargetSize(1200, (1200 / ratio).toInt())
+                    } else {
+                        decoder.setTargetSize((1200 * ratio).toInt(), 1200)
+                    }
+                }
+            }
+        } else {
+            val options = BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+            }
+            contentResolver.openInputStream(uri)?.use {
+                BitmapFactory.decodeStream(it, null, options)
+            }
+            var sampleSize = 1
+            while (options.outWidth / sampleSize > 1200 || options.outHeight / sampleSize > 1200) {
+                sampleSize *= 2
+            }
+            val decodeOptions = BitmapFactory.Options().apply {
+                inSampleSize = sampleSize
+            }
+            contentResolver.openInputStream(uri)?.use {
+                BitmapFactory.decodeStream(it, null, decodeOptions)
+            }
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+        null
+    }
+}
+
+fun cropAndSaveBitmap(
+    context: Context,
+    original: Bitmap,
+    scale: Float,
+    offsetX: Float,
+    offsetY: Float,
+    viewportSizePx: Float
+): String? {
+    return try {
+        val targetSize = 512
+        val cropped = Bitmap.createBitmap(targetSize, targetSize, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(cropped)
+        
+        val w = original.width.toFloat()
+        val h = original.height.toFloat()
+        val baseScale = targetSize / w.coerceAtMost(h)
+        
+        val scaleMultiplier = targetSize / viewportSizePx
+        val canvasOffsetX = offsetX * scaleMultiplier
+        val canvasOffsetY = offsetY * scaleMultiplier
+        
+        val matrix = Matrix()
+        matrix.postTranslate(-w / 2f, -h / 2f)
+        val finalScale = baseScale * scale
+        matrix.postScale(finalScale, finalScale)
+        matrix.postTranslate(targetSize / 2f, targetSize / 2f)
+        matrix.postTranslate(canvasOffsetX, canvasOffsetY)
+        
+        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG or android.graphics.Paint.FILTER_BITMAP_FLAG)
+        canvas.drawBitmap(original, matrix, paint)
+        
+        val outputDir = context.filesDir
+        val file = File(outputDir, "profile_cropped_${System.currentTimeMillis()}.jpg")
+        FileOutputStream(file).use { out ->
+            cropped.compress(Bitmap.CompressFormat.JPEG, 90, out)
+        }
+        
+        cropped.recycle()
+        file.absolutePath
+    } catch (e: Exception) {
+        e.printStackTrace()
+        null
+    }
+}
+
+@Composable
+fun ImageCropperDialog(
+    uri: Uri,
+    onDismiss: () -> Unit,
+    onCropped: (String) -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    
+    var bitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+    
+    LaunchedEffect(uri) {
+        isLoading = true
+        withContext(Dispatchers.IO) {
+            bitmap = loadDownscaledBitmap(context, uri)
+        }
+        isLoading = false
+    }
+    
+    if (isLoading) {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            confirmButton = {},
+            title = { Text("Loading Image...", color = Color.White) },
+            text = {
+                Box(modifier = Modifier.fillMaxWidth().height(150.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                }
+            },
+            containerColor = Color(0xFF1E1E1E)
+        )
+    } else if (bitmap == null) {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            confirmButton = {
+                TextButton(onClick = onDismiss) {
+                    Text("OK", color = Color.White)
+                }
+            },
+            title = { Text("Error", color = Color.White) },
+            text = { Text("Unable to load the selected image.", color = Color.White.copy(alpha = 0.7f)) },
+            containerColor = Color(0xFF1E1E1E)
+        )
+    } else {
+        val loadedBitmap = bitmap!!
+        
+        var scale by remember { mutableStateOf(1f) }
+        var offset by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+        
+        val viewportSizeDp = 280.dp
+        val density = LocalDensity.current
+        val viewportSizePx = remember(density) { with(density) { viewportSizeDp.toPx() } }
+        
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = {
+                Text(
+                    text = "Crop Profile Picture",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            text = {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Drag to position, pinch or use slider to zoom",
+                        color = Color.White.copy(alpha = 0.6f),
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                    
+                    Box(
+                        modifier = Modifier
+                            .size(viewportSizeDp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color.Black)
+                            .pointerInput(Unit) {
+                                detectTransformGestures { _, pan, zoom, _ ->
+                                    scale = (scale * zoom).coerceIn(1f, 5f)
+                                    val maxPanX = (scale - 1f) * viewportSizePx / 2f
+                                    val maxPanY = (scale - 1f) * viewportSizePx / 2f
+                                    offset = androidx.compose.ui.geometry.Offset(
+                                        x = (offset.x + pan.x).coerceIn(-maxPanX - 100f, maxPanX + 100f),
+                                        y = (offset.y + pan.y).coerceIn(-maxPanY - 100f, maxPanY + 100f)
+                                    )
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            bitmap = remember(loadedBitmap) { loadedBitmap.asImageBitmap() },
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer(
+                                    scaleX = scale,
+                                    scaleY = scale,
+                                    translationX = offset.x,
+                                    translationY = offset.y
+                                ),
+                            contentScale = ContentScale.Fit
+                        )
+                        
+                        androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+                            val canvasWidth = size.width
+                            val canvasHeight = size.height
+                            val circleRadius = canvasWidth.coerceAtMost(canvasHeight) / 2f * 0.9f
+                            
+                            val path = androidx.compose.ui.graphics.Path().apply {
+                                addRect(androidx.compose.ui.geometry.Rect(0f, 0f, canvasWidth, canvasHeight))
+                            }
+                            val circlePath = androidx.compose.ui.graphics.Path().apply {
+                                addOval(
+                                    androidx.compose.ui.geometry.Rect(
+                                        center = androidx.compose.ui.geometry.Offset(canvasWidth / 2f, canvasHeight / 2f),
+                                        radius = circleRadius
+                                    )
+                                )
+                            }
+                            
+                            val differencePath = androidx.compose.ui.graphics.Path.combine(
+                                operation = androidx.compose.ui.graphics.PathOperation.Difference,
+                                path1 = path,
+                                path2 = circlePath
+                            )
+                            
+                            drawPath(
+                                path = differencePath,
+                                color = Color.Black.copy(alpha = 0.7f)
+                            )
+                            
+                            drawCircle(
+                                color = Color.White,
+                                radius = circleRadius,
+                                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
+                            )
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(24.dp))
+                    
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+                    ) {
+                        Icon(Icons.Default.Remove, contentDescription = "Zoom Out", tint = Color.White.copy(alpha = 0.6f))
+                        Slider(
+                            value = scale,
+                            onValueChange = { scale = it },
+                            valueRange = 1f..5f,
+                            modifier = Modifier.weight(1f),
+                            colors = SliderDefaults.colors(
+                                thumbColor = Color.White,
+                                activeTrackColor = Color.White,
+                                inactiveTrackColor = Color.White.copy(alpha = 0.24f)
+                            )
+                        )
+                        Icon(Icons.Default.Add, contentDescription = "Zoom In", tint = Color.White.copy(alpha = 0.6f))
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            isLoading = true
+                            val savedPath = withContext(Dispatchers.IO) {
+                                cropAndSaveBitmap(
+                                    context = context,
+                                    original = loadedBitmap,
+                                    scale = scale,
+                                    offsetX = offset.x,
+                                    offsetY = offset.y,
+                                    viewportSizePx = viewportSizePx
+                                )
+                            }
+                            isLoading = false
+                            if (savedPath != null) {
+                                onCropped(savedPath)
+                            }
+                            onDismiss()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Text("Save Photo", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismiss) {
+                    Text("Cancel", color = Color.White.copy(alpha = 0.6f))
+                }
+            },
+            containerColor = Color(0xFF1E1E1E),
+            shape = RoundedCornerShape(24.dp)
+        )
+    }
+}
+
 // ---------------- PROFILE SCREEN & STATS ----------------
 @Composable
 fun ProfileScreenContent(viewModel: MainViewModel) {
@@ -1165,6 +1557,7 @@ fun ProfileScreenContent(viewModel: MainViewModel) {
     var isEditingName by remember { mutableStateOf(false) }
     var editedName by remember { mutableStateOf(settings.userName) }
     var showPhotoOptionsDialog by remember { mutableStateOf(false) }
+    var cropImageUri by remember { mutableStateOf<Uri?>(null) }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
@@ -1176,7 +1569,7 @@ fun ProfileScreenContent(viewModel: MainViewModel) {
             } catch (e: Exception) {
                 e.printStackTrace()
             }
-            viewModel.updateProfileImage(uri.toString())
+            cropImageUri = uri
         }
     }
 
@@ -1451,6 +1844,26 @@ fun ProfileScreenContent(viewModel: MainViewModel) {
             containerColor = Color(0xFF1E1E1E)
         )
     }
+
+    if (cropImageUri != null) {
+        ImageCropperDialog(
+            uri = cropImageUri!!,
+            onDismiss = { cropImageUri = null },
+            onCropped = { croppedPath ->
+                if (settings.profileImagePath.isNotEmpty() && settings.profileImagePath.startsWith(context.filesDir.absolutePath)) {
+                    try {
+                        val oldFile = File(settings.profileImagePath)
+                        if (oldFile.exists()) {
+                            oldFile.delete()
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+                viewModel.updateProfileImage(croppedPath)
+            }
+        )
+    }
 }
 
 @Composable
@@ -1506,15 +1919,17 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
     }
 
     var folderInputPath by remember(settings.customScanFolderPath) { mutableStateOf(settings.customScanFolderPath) }
+    var showMusicScannerScreen by remember { mutableStateOf(false) }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(top = 24.dp, bottom = 120.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
-    ) {
-        item {
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            contentPadding = PaddingValues(top = 24.dp, bottom = 120.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
+            item {
             Text(
                 text = "Settings",
                 fontSize = 24.sp,
@@ -1593,330 +2008,56 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
             }
         }
 
-        // 2. SMART MUSIC SCANS
+        // 2. LIBRARY SCANNER (CONCISE SINGLE OPTION ENTRY)
         item {
-            Text("Music Scanner", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Text("Library", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
             Spacer(modifier = Modifier.height(12.dp))
             GlassCard(
                 modifier = Modifier.fillMaxWidth(),
                 isGlassEnabled = settings.isGlassEnabled,
                 isDark = settings.isDarkMode
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Ignore shorter than 1 min", color = Color.White, fontSize = 14.sp)
-                        Switch(
-                            checked = settings.ignoreShorterThan1Min,
-                            onCheckedChange = {
-                                viewModel.updateScanFilters(
-                                    it,
-                                    settings.ignoreSmallerThan100KB,
-                                    settings.ignoreHidden,
-                                    settings.ignoreDuplicates,
-                                    settings.scanDownloads,
-                                    settings.scanSDCard
-                                )
-                            },
-                            colors = SwitchDefaults.colors(checkedThumbColor = Accents[settings.accentColorIndex])
-                        )
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Ignore smaller than 100 KB", color = Color.White, fontSize = 14.sp)
-                        Switch(
-                            checked = settings.ignoreSmallerThan100KB,
-                            onCheckedChange = {
-                                viewModel.updateScanFilters(
-                                    settings.ignoreShorterThan1Min,
-                                    it,
-                                    settings.ignoreHidden,
-                                    settings.ignoreDuplicates,
-                                    settings.scanDownloads,
-                                    settings.scanSDCard
-                                )
-                            },
-                            colors = SwitchDefaults.colors(checkedThumbColor = Accents[settings.accentColorIndex])
-                        )
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Ignore hidden files/folders", color = Color.White, fontSize = 14.sp)
-                        Switch(
-                            checked = settings.ignoreHidden,
-                            onCheckedChange = {
-                                viewModel.updateScanFilters(
-                                    settings.ignoreShorterThan1Min,
-                                    settings.ignoreSmallerThan100KB,
-                                    it,
-                                    settings.ignoreDuplicates,
-                                    settings.scanDownloads,
-                                    settings.scanSDCard
-                                )
-                            },
-                            colors = SwitchDefaults.colors(checkedThumbColor = Accents[settings.accentColorIndex])
-                        )
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Scan SD Card folders", color = Color.White, fontSize = 14.sp)
-                        Switch(
-                            checked = settings.scanSDCard,
-                            onCheckedChange = {
-                                viewModel.updateScanFilters(
-                                    settings.ignoreShorterThan1Min,
-                                    settings.ignoreSmallerThan100KB,
-                                    settings.ignoreHidden,
-                                    settings.ignoreDuplicates,
-                                    settings.scanDownloads,
-                                    it
-                                )
-                            },
-                            colors = SwitchDefaults.colors(checkedThumbColor = Accents[settings.accentColorIndex])
-                        )
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Scan Downloads directory", color = Color.White, fontSize = 14.sp)
-                        Switch(
-                            checked = settings.scanDownloads,
-                            onCheckedChange = {
-                                viewModel.updateScanFilters(
-                                    settings.ignoreShorterThan1Min,
-                                    settings.ignoreSmallerThan100KB,
-                                    settings.ignoreHidden,
-                                    settings.ignoreDuplicates,
-                                    it,
-                                    settings.scanSDCard
-                                )
-                            },
-                            colors = SwitchDefaults.colors(checkedThumbColor = Accents[settings.accentColorIndex])
-                        )
-                    }
-
-                    // Scan triggers
-                    Button(
-                        onClick = { viewModel.triggerScan() },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Accents[settings.accentColorIndex],
-                            contentColor = Color.Black
-                        )
-                    ) {
-                        Icon(Icons.Default.Refresh, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Rescan Music Assets Now", fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
-
-        // Storage permissions card
-        item {
-            Text("System Permissions & Storage", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
-            Spacer(modifier = Modifier.height(12.dp))
-            GlassCard(
-                modifier = Modifier.fillMaxWidth(),
-                isGlassEnabled = settings.isGlassEnabled,
-                isDark = settings.isDarkMode
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Storage Permission", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            Text(
-                                text = if (hasPermissionState) "Permission Granted" else "Access Required to scan audio files",
-                                color = if (hasPermissionState) NeonGreen else HotPink,
-                                fontSize = 12.sp,
-                                modifier = Modifier.padding(top = 2.dp)
-                            )
-                        }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showMusicScannerScreen = true }
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background((if (hasPermissionState) NeonGreen else HotPink).copy(alpha = 0.2f)),
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Accents[settings.accentColorIndex].copy(alpha = 0.15f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = if (hasPermissionState) Icons.Default.CheckCircle else Icons.Default.Warning,
+                                imageVector = Icons.Default.Search,
                                 contentDescription = null,
-                                tint = if (hasPermissionState) NeonGreen else HotPink,
-                                modifier = Modifier.size(20.dp)
+                                tint = Accents[settings.accentColorIndex]
                             )
                         }
-                    }
-
-                    if (!hasPermissionState) {
-                        Button(
-                            onClick = {
-                                permissionLauncher.launch(permissionsToRequest)
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = HotPink,
-                                contentColor = Color.White
-                            )
-                        ) {
-                            Icon(Icons.Default.LockOpen, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Grant Storage Permission", fontWeight = FontWeight.Bold)
-                        }
-                    } else {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color.White.copy(alpha = 0.05f))
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Default.Security, contentDescription = null, tint = NeonGreen, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("BeatFlow is fully authorized to load media.", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text("Music Scanner & Filters", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                            Text("Manage directories, file rules, and rescan audio", color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp)
                         }
                     }
+                    Icon(
+                        imageVector = Icons.Default.ArrowForward,
+                        contentDescription = "Navigate",
+                        tint = Color.White.copy(alpha = 0.4f),
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
         }
 
-        // Direct folder scanner card (force add)
-        item {
-            Text("Immersive Folder Scanner (Force Add)", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
-            Spacer(modifier = Modifier.height(12.dp))
-            GlassCard(
-                modifier = Modifier.fillMaxWidth(),
-                isGlassEnabled = settings.isGlassEnabled,
-                isDark = settings.isDarkMode
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text(
-                        text = "Specify a direct directory path to scan files recursively. This bypasses system indexing databases entirely.",
-                        color = Color.White.copy(alpha = 0.6f),
-                        fontSize = 12.sp,
-                        lineHeight = 18.sp
-                    )
 
-                    TextField(
-                        value = folderInputPath,
-                        onValueChange = { folderInputPath = it },
-                        label = { Text("Custom Folder Path", color = Color.White.copy(alpha = 0.4f)) },
-                        placeholder = { Text("e.g. /sdcard/Music", color = Color.White.copy(alpha = 0.3f)) },
-                        singleLine = true,
-                        colors = TextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedContainerColor = Color.White.copy(alpha = 0.05f),
-                            unfocusedContainerColor = Color.White.copy(alpha = 0.05f),
-                            focusedLabelColor = Accents[settings.accentColorIndex],
-                            unfocusedLabelColor = Color.White.copy(alpha = 0.4f)
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
 
-                    // Quick Presets Selector
-                    Column {
-                        Text("Quick Presets Path Selection", color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            listOf(
-                                "/sdcard/Music" to "Music SD",
-                                "/storage/emulated/0/Music" to "Music Storage",
-                                "/storage/emulated/0/Download" to "Downloads"
-                            ).forEach { (path, label) ->
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(if (folderInputPath == path) Accents[settings.accentColorIndex].copy(alpha = 0.2f) else Color.White.copy(alpha = 0.05f))
-                                        .border(
-                                            width = 1.dp,
-                                            color = if (folderInputPath == path) Accents[settings.accentColorIndex] else Color.White.copy(alpha = 0.1f),
-                                            shape = RoundedCornerShape(8.dp)
-                                        )
-                                        .clickable { folderInputPath = path }
-                                        .padding(vertical = 8.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = label,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (folderInputPath == path) Accents[settings.accentColorIndex] else Color.White.copy(alpha = 0.7f)
-                                    )
-                                }
-                            }
-                        }
-                    }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = {
-                                viewModel.updateCustomScanFolderPath(folderInputPath.trim())
-                            },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp),
-                            border = ButtonDefaults.outlinedButtonBorder,
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
-                        ) {
-                            Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Save Path", fontSize = 13.sp)
-                        }
-
-                        Button(
-                            onClick = {
-                                viewModel.updateCustomScanFolderPath(folderInputPath.trim())
-                                viewModel.triggerScan()
-                            },
-                            modifier = Modifier
-                                .weight(1.2f)
-                                .glow(Accents[settings.accentColorIndex], radius = 8.dp, alpha = 0.15f),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Accents[settings.accentColorIndex],
-                                contentColor = Color.Black
-                            )
-                        ) {
-                            Icon(Icons.Default.Folder, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Force Scan Folder", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            }
-        }
 
         // 3. PLAYBACK speed
         item {
@@ -1969,6 +2110,475 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                     ) {
                         Text("Product Version", color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
                         Text("v1.0.0 (Production Stable)", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+
+        // Dedicated sub-page overlay for Music Scanner
+        if (showMusicScannerScreen) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(if (settings.isAmoledMode) Color.Black else Color(0xFF121212))
+            ) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    contentPadding = PaddingValues(top = 24.dp, bottom = 120.dp),
+                    verticalArrangement = Arrangement.spacedBy(20.dp)
+                ) {
+                    // Header with back navigation button
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .statusBarsPadding(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(
+                                onClick = { showMusicScannerScreen = false },
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.05f))
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = Color.White
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Text(
+                                text = "Music Scanner",
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                    }
+
+                    // 1. ACTIVE PROGRESS & CONTROLS SCREEN
+                    item {
+                        val isScanning by viewModel.isScanning.collectAsStateWithLifecycle()
+                        val progress by viewModel.scanProgress.collectAsStateWithLifecycle()
+                        val filesFound by viewModel.scanFilesFound.collectAsStateWithLifecycle()
+                        val scanStatus by viewModel.scanStatus.collectAsStateWithLifecycle()
+
+                        GlassCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            isGlassEnabled = settings.isGlassEnabled,
+                            isDark = settings.isDarkMode
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 16.dp)
+                            ) {
+                                if (isScanning) {
+                                    Box(
+                                        modifier = Modifier.size(160.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator(
+                                            progress = { progress / 100f },
+                                            modifier = Modifier.size(140.dp),
+                                            color = Accents[settings.accentColorIndex],
+                                            strokeWidth = 10.dp,
+                                            trackColor = Color.White.copy(alpha = 0.1f)
+                                        )
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text(
+                                                text = "$progress%",
+                                                fontSize = 32.sp,
+                                                fontWeight = FontWeight.Black,
+                                                color = Color.White
+                                            )
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = "Scanning",
+                                                fontSize = 11.sp,
+                                                color = Color.White.copy(alpha = 0.5f),
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(24.dp))
+
+                                    Text(
+                                        text = scanStatus,
+                                        color = Color.White,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp)
+                                    )
+
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center,
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(16.dp))
+                                            .background(Color.White.copy(alpha = 0.05f))
+                                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.AudioFile,
+                                            contentDescription = null,
+                                            tint = Accents[settings.accentColorIndex],
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "$filesFound new files discovered",
+                                            color = Color.White.copy(alpha = 0.8f),
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.MusicNote,
+                                        tint = Accents[settings.accentColorIndex].copy(alpha = 0.6f),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(72.dp)
+                                    )
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    Text(
+                                        text = if (scanStatus == "Ready to Scan") "Ready to Scan Device" else scanStatus,
+                                        color = Color.White,
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+
+                                    Spacer(modifier = Modifier.height(4.dp))
+
+                                    Text(
+                                        text = "Search local folders for new tracks.",
+                                        color = Color.White.copy(alpha = 0.5f),
+                                        fontSize = 12.sp,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+
+                                    Spacer(modifier = Modifier.height(24.dp))
+
+                                    Button(
+                                        onClick = { viewModel.triggerScan() },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp),
+                                        shape = RoundedCornerShape(14.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = Accents[settings.accentColorIndex],
+                                            contentColor = Color.Black
+                                        )
+                                    ) {
+                                        Icon(Icons.Default.Refresh, contentDescription = null)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Scan Music Library Now", fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // 2. STORAGE PERMISSIONS STATUS
+                    item {
+                        Text(
+                            text = "System Permissions & Storage",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        GlassCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            isGlassEnabled = settings.isGlassEnabled,
+                            isDark = settings.isDarkMode
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("Storage Permission", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                        Text(
+                                            text = if (hasPermissionState) "Permission Granted" else "Access Required to scan audio files",
+                                            color = if (hasPermissionState) NeonGreen else HotPink,
+                                            fontSize = 12.sp,
+                                            modifier = Modifier.padding(top = 2.dp)
+                                        )
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(CircleShape)
+                                            .background((if (hasPermissionState) NeonGreen else HotPink).copy(alpha = 0.2f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = if (hasPermissionState) Icons.Default.CheckCircle else Icons.Default.Warning,
+                                            contentDescription = null,
+                                            tint = if (hasPermissionState) NeonGreen else HotPink,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+
+                                if (!hasPermissionState) {
+                                    Button(
+                                        onClick = {
+                                            permissionLauncher.launch(permissionsToRequest)
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = HotPink,
+                                            contentColor = Color.White
+                                        )
+                                    ) {
+                                        Icon(Icons.Default.LockOpen, contentDescription = null)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Grant Storage Permission", fontWeight = FontWeight.Bold)
+                                    }
+                                } else {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(Color.White.copy(alpha = 0.05f))
+                                            .padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(Icons.Default.Security, contentDescription = null, tint = NeonGreen, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Authorized to load device audio files.", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // 3. COMPACT RULES FILTERING CARDS
+                    item {
+                        Text(
+                            text = "Filter Rules",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        GlassCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            isGlassEnabled = settings.isGlassEnabled,
+                            isDark = settings.isDarkMode
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Ignore shorter than 1 min", color = Color.White, fontSize = 14.sp)
+                                    Switch(
+                                        checked = settings.ignoreShorterThan1Min,
+                                        onCheckedChange = {
+                                            viewModel.updateScanFilters(
+                                                it,
+                                                settings.ignoreSmallerThan100KB,
+                                                settings.ignoreHidden,
+                                                settings.ignoreDuplicates,
+                                                settings.scanDownloads,
+                                                settings.scanSDCard
+                                            )
+                                        },
+                                        colors = SwitchDefaults.colors(checkedThumbColor = Accents[settings.accentColorIndex])
+                                    )
+                                }
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Ignore smaller than 100 KB", color = Color.White, fontSize = 14.sp)
+                                    Switch(
+                                        checked = settings.ignoreSmallerThan100KB,
+                                        onCheckedChange = {
+                                            viewModel.updateScanFilters(
+                                                settings.ignoreShorterThan1Min,
+                                                it,
+                                                settings.ignoreHidden,
+                                                settings.ignoreDuplicates,
+                                                settings.scanDownloads,
+                                                settings.scanSDCard
+                                            )
+                                        },
+                                        colors = SwitchDefaults.colors(checkedThumbColor = Accents[settings.accentColorIndex])
+                                    )
+                                }
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Ignore hidden files/folders", color = Color.White, fontSize = 14.sp)
+                                    Switch(
+                                        checked = settings.ignoreHidden,
+                                        onCheckedChange = {
+                                            viewModel.updateScanFilters(
+                                                settings.ignoreShorterThan1Min,
+                                                settings.ignoreSmallerThan100KB,
+                                                it,
+                                                settings.ignoreDuplicates,
+                                                settings.scanDownloads,
+                                                settings.scanSDCard
+                                            )
+                                        },
+                                        colors = SwitchDefaults.colors(checkedThumbColor = Accents[settings.accentColorIndex])
+                                    )
+                                }
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Scan SD Card folders", color = Color.White, fontSize = 14.sp)
+                                    Switch(
+                                        checked = settings.scanSDCard,
+                                        onCheckedChange = {
+                                            viewModel.updateScanFilters(
+                                                settings.ignoreShorterThan1Min,
+                                                settings.ignoreSmallerThan100KB,
+                                                settings.ignoreHidden,
+                                                settings.ignoreDuplicates,
+                                                settings.scanDownloads,
+                                                it
+                                            )
+                                        },
+                                        colors = SwitchDefaults.colors(checkedThumbColor = Accents[settings.accentColorIndex])
+                                    )
+                                }
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Scan Downloads directory", color = Color.White, fontSize = 14.sp)
+                                    Switch(
+                                        checked = settings.scanDownloads,
+                                        onCheckedChange = {
+                                            viewModel.updateScanFilters(
+                                                settings.ignoreShorterThan1Min,
+                                                settings.ignoreSmallerThan100KB,
+                                                settings.ignoreHidden,
+                                                settings.ignoreDuplicates,
+                                                it,
+                                                settings.scanSDCard
+                                            )
+                                        },
+                                        colors = SwitchDefaults.colors(checkedThumbColor = Accents[settings.accentColorIndex])
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // 4. DIRECT SCAN CUSTOM FOLDER
+                    item {
+                        Text(
+                            text = "Direct Folder Scanner (Force Add)",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        GlassCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            isGlassEnabled = settings.isGlassEnabled,
+                            isDark = settings.isDarkMode
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                                Text(
+                                    text = "Specify a direct directory path to scan files recursively. This bypasses system indexing databases entirely.",
+                                    color = Color.White.copy(alpha = 0.6f),
+                                    fontSize = 12.sp,
+                                    lineHeight = 18.sp
+                                )
+
+                                TextField(
+                                    value = folderInputPath,
+                                    onValueChange = { folderInputPath = it },
+                                    label = { Text("Custom Folder Path", color = Color.White.copy(alpha = 0.4f)) },
+                                    placeholder = { Text("e.g. /sdcard/Music", color = Color.White.copy(alpha = 0.3f)) },
+                                    singleLine = true,
+                                    colors = TextFieldDefaults.colors(
+                                        focusedTextColor = Color.White,
+                                        unfocusedTextColor = Color.White,
+                                        focusedContainerColor = Color.White.copy(alpha = 0.05f),
+                                        unfocusedContainerColor = Color.White.copy(alpha = 0.02f),
+                                        focusedIndicatorColor = Accents[settings.accentColorIndex],
+                                        unfocusedIndicatorColor = Color.White.copy(alpha = 0.1f)
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            viewModel.updateCustomScanFolderPath(folderInputPath.trim())
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(12.dp),
+                                        border = ButtonDefaults.outlinedButtonBorder,
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                                    ) {
+                                        Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Save Path", fontSize = 13.sp)
+                                    }
+
+                                    Button(
+                                        onClick = {
+                                            viewModel.updateCustomScanFolderPath(folderInputPath.trim())
+                                            viewModel.triggerScan()
+                                        },
+                                        modifier = Modifier
+                                            .weight(1.2f)
+                                            .glow(Accents[settings.accentColorIndex], radius = 8.dp, alpha = 0.15f),
+                                        shape = RoundedCornerShape(12.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = Accents[settings.accentColorIndex],
+                                            contentColor = Color.Black
+                                        )
+                                    ) {
+                                        Icon(Icons.Default.Folder, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Force Scan Folder", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

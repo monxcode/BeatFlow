@@ -91,6 +91,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _isScanning = MutableStateFlow(false)
     val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
 
+    private val _scanProgress = MutableStateFlow(0)
+    val scanProgress: StateFlow<Int> = _scanProgress.asStateFlow()
+
+    private val _scanFilesFound = MutableStateFlow(0)
+    val scanFilesFound: StateFlow<Int> = _scanFilesFound.asStateFlow()
+
+    private val _scanStatus = MutableStateFlow("Ready to Scan")
+    val scanStatus: StateFlow<String> = _scanStatus.asStateFlow()
+
     init {
         // Automatically start background position monitoring
         PlaybackManager.getExoPlayer(context)
@@ -109,11 +118,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun triggerScan() {
         if (_isScanning.value) return
         _isScanning.value = true
+        _scanProgress.value = 0
+        _scanFilesFound.value = 0
+        _scanStatus.value = "Starting scan..."
         viewModelScope.launch {
             try {
-                repository.triggerScan()
+                repository.triggerScan { percent, filesFound, status ->
+                    _scanProgress.value = percent
+                    _scanFilesFound.value = filesFound
+                    _scanStatus.value = status
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
+                _scanStatus.value = "Error: ${e.localizedMessage ?: "Unknown scanning error"}"
             } finally {
                 _isScanning.value = false
             }

@@ -30,9 +30,9 @@ class MusicRepository(private val context: Context) {
     }
 
     // Music Smart Scanning
-    suspend fun triggerScan(): Int {
+    suspend fun triggerScan(onProgress: (percent: Int, filesFound: Int, status: String) -> Unit = { _, _, _ -> }): Int {
         val currentSettings = settings.first()
-        return MusicScanner.scanMusic(context, songDao, currentSettings)
+        return MusicScanner.scanMusic(context, songDao, currentSettings, onProgress)
     }
 
     suspend fun deleteSampleSongs() {
