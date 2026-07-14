@@ -438,7 +438,7 @@ fun HomeScreenContent(
                     )
                 }
             } else {
-                items(filteredSongs) { song ->
+                items(filteredSongs, key = { it.id }) { song ->
                     SongListItem(
                         song = song,
                         settings = settings,
@@ -556,7 +556,7 @@ fun HomeScreenContent(
                             horizontalArrangement = Arrangement.spacedBy(16.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            items(latest.take(5)) { song ->
+                            items(latest.take(5), key = { it.id }) { song ->
                                 LatestTrackCard(
                                     song = song,
                                     settings = settings,
@@ -581,7 +581,7 @@ fun HomeScreenContent(
                             horizontalArrangement = Arrangement.spacedBy(16.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            items(favorites) { song ->
+                            items(favorites, key = { it.id }) { song ->
                                 LatestTrackCard(
                                     song = song,
                                     settings = settings,
@@ -626,7 +626,7 @@ fun HomeScreenContent(
                         )
                     }
                 } else {
-                    items(songs) { song ->
+                    items(songs, key = { it.id }) { song ->
                         SongListItem(
                             song = song,
                             settings = settings,
@@ -655,7 +655,7 @@ fun HomeScreenContent(
                             )
                         }
                     } else {
-                        items(albums) { albumName ->
+                        items(albums, key = { it }) { albumName ->
                             val currentAlbumSongs = remember(songs, albumName) {
                                 songs.filter { it.album == albumName }
                             }
@@ -697,7 +697,7 @@ fun HomeScreenContent(
                         }
                     }
 
-                    items(albumSongs) { song ->
+                    items(albumSongs, key = { it.id }) { song ->
                         SongListItem(
                             song = song,
                             settings = settings,
@@ -726,7 +726,7 @@ fun HomeScreenContent(
                             )
                         }
                     } else {
-                        items(artists) { artistName ->
+                        items(artists, key = { it }) { artistName ->
                             val currentArtistSongs = remember(songs, artistName) {
                                 songs.filter { it.artist == artistName }
                             }
@@ -766,7 +766,7 @@ fun HomeScreenContent(
                         }
                     }
 
-                    items(artistSongs) { song ->
+                    items(artistSongs, key = { it.id }) { song ->
                         SongListItem(
                             song = song,
                             settings = settings,
@@ -801,7 +801,7 @@ fun HomeScreenContent(
                             )
                         }
                     } else {
-                        items(playlists) { playlist ->
+                        items(playlists, key = { it.id }) { playlist ->
                             PlaylistListItemHome(
                                 playlist = playlist,
                                 settings = settings,
@@ -847,7 +847,7 @@ fun HomeScreenContent(
                             )
                         }
                     } else {
-                        items(playlistSongs) { song ->
+                        items(playlistSongs, key = { it.id }) { song ->
                             SongListItem(
                                 song = song,
                                 settings = settings,
@@ -902,7 +902,7 @@ fun FavoritesScreenContent(viewModel: MainViewModel) {
                 contentPadding = PaddingValues(bottom = 120.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(favorites) { song ->
+                items(favorites, key = { it.id }) { song ->
                     SongListItem(
                         song = song,
                         settings = settings,
@@ -1012,7 +1012,7 @@ fun PlaylistsScreenContent(viewModel: MainViewModel) {
                     contentPadding = PaddingValues(bottom = 120.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(playlists) { playlist ->
+                    items(playlists, key = { it.id }) { playlist ->
                         PlaylistListItem(
                             playlist = playlist,
                             settings = settings,
@@ -1037,7 +1037,7 @@ fun PlaylistsScreenContent(viewModel: MainViewModel) {
                     contentPadding = PaddingValues(bottom = 120.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    items(folders.keys.toList()) { folderName ->
+                    items(folders.keys.toList(), key = { it }) { folderName ->
                         val folderSongs = folders[folderName] ?: emptyList()
                         FolderListItem(
                             name = folderName,

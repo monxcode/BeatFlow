@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,6 +40,16 @@ fun GlassCard(
     onClick: (() -> Unit)? = null,
     content: @Composable BoxScope.() -> Unit
 ) {
+    val blurEffect = remember(isGlassEnabled) {
+        if (isGlassEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            RenderEffect.createBlurEffect(
+                20f, 20f, Shader.TileMode.CLAMP
+            ).asComposeRenderEffect()
+        } else {
+            null
+        }
+    }
+
     val backgroundBrush = if (isGlassEnabled) {
         val baseColor = if (isDark) GlassDarkSurface else GlassLightSurface
         Brush.verticalGradient(
@@ -84,11 +95,8 @@ fun GlassCard(
                 modifier = Modifier
                     .matchParentSize()
                     .graphicsLayer {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                            val blur = RenderEffect.createBlurEffect(
-                                30f, 30f, Shader.TileMode.CLAMP
-                            )
-                            renderEffect = blur.asComposeRenderEffect()
+                        if (blurEffect != null) {
+                            renderEffect = blurEffect
                         }
                     }
                     .background(backgroundBrush)

@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -842,8 +843,8 @@ fun QueueBottomSheet(
                         .height(300.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    items(queueList) { song ->
-                        val isCurrent = queueList.indexOfFirst { it.id == song.id } == activeIndex
+                    itemsIndexed(queueList, key = { index, song -> "${song.id}_$index" }) { index, song ->
+                        val isCurrent = index == activeIndex
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
