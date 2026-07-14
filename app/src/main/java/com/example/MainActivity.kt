@@ -74,12 +74,12 @@ class MainActivity : ComponentActivity() {
                                                 Icon(
                                                     imageVector = Icons.Default.ArrowBack,
                                                     contentDescription = "Back",
-                                                    tint = Color.White
+                                                    tint = MaterialTheme.colorScheme.onBackground
                                                 )
                                             }
                                             Text(
                                                 text = "Profile",
-                                                color = Color.White,
+                                                color = MaterialTheme.colorScheme.onBackground,
                                                 fontSize = 20.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 modifier = Modifier.padding(start = 12.dp)

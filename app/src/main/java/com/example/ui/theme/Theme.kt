@@ -27,6 +27,8 @@ private val BaseLightColorScheme = lightColorScheme(
     onSurface = Color(0xFF1C1B1F)
 )
 
+val LocalIsDarkMode = androidx.compose.runtime.staticCompositionLocalOf { true }
+
 @Composable
 fun BeatFlowTheme(
     isDarkMode: Boolean = true,
@@ -54,9 +56,11 @@ fun BeatFlowTheme(
         )
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
+    androidx.compose.runtime.CompositionLocalProvider(LocalIsDarkMode provides isDarkMode) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = Typography,
+            content = content
+        )
+    }
 }

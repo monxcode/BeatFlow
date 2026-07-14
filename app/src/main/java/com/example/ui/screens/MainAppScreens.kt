@@ -86,12 +86,9 @@ import com.example.data.Song
 import com.example.ui.MainViewModel
 import com.example.ui.components.GlassCard
 import com.example.ui.components.glow
-import com.example.ui.theme.GlassDarkSurface
-import com.example.ui.theme.GlassLightSurface
-import com.example.ui.theme.Accents
-import com.example.ui.theme.ElectricBlue
-import com.example.ui.theme.HotPink
-import com.example.ui.theme.NeonGreen
+import com.example.ui.theme.*
+import com.example.ui.theme.*
+import com.example.ui.theme.*
 import java.util.Calendar
 
 // Pre-baked Avatar Gradients for high-fidelity offline personalization
@@ -273,7 +270,7 @@ fun HomeScreenContent(
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
                             contentDescription = "Collapse Search",
-                            tint = Color.White
+                            tint = themeText
                         )
                     }
                     
@@ -296,14 +293,14 @@ fun HomeScreenContent(
                             Icon(
                                 imageVector = Icons.Default.Search,
                                 contentDescription = "Search Icon",
-                                tint = Color.White.copy(alpha = 0.6f),
+                                tint = themeTextMuted,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             BasicTextField(
                                 value = searchQuery,
                                 onValueChange = { viewModel.updateSearchQuery(it) },
-                                textStyle = TextStyle(color = Color.White, fontSize = 14.sp),
+                                textStyle = TextStyle(color = themeText, fontSize = 14.sp),
                                 singleLine = true,
                                 cursorBrush = SolidColor(Color.White),
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -318,7 +315,7 @@ fun HomeScreenContent(
                                     if (searchQuery.isEmpty()) {
                                         Text(
                                             "Search...",
-                                            color = Color.White.copy(alpha = 0.3f),
+                                            color = themeTextFaint,
                                             fontSize = 14.sp
                                         )
                                     }
@@ -329,7 +326,7 @@ fun HomeScreenContent(
                                 Icon(
                                     imageVector = Icons.Default.Close,
                                     contentDescription = "Clear",
-                                    tint = Color.White.copy(alpha = 0.6f),
+                                    tint = themeTextMuted,
                                     modifier = Modifier
                                         .size(16.dp)
                                         .clickable { viewModel.updateSearchQuery("") }
@@ -348,19 +345,19 @@ fun HomeScreenContent(
                             text = "BeatFlow",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            color = Color.White
+                            color = themeText
                         )
                     } else {
                         Text(
                             text = "$greeting, ${settings.userName} 👋",
                             fontSize = 24.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            color = Color.White
+                            color = themeText
                         )
                         Text(
                             text = "Your music, secured offline.",
                             fontSize = 12.sp,
-                            color = Color.White.copy(alpha = 0.5f),
+                            color = themeTextMuted,
                             modifier = Modifier.padding(top = 2.dp)
                         )
                     }
@@ -379,7 +376,7 @@ fun HomeScreenContent(
                         modifier = Modifier
                             .size(36.dp)
                             .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.08f))
+                            .background(themeCardBgSelected)
                             .clickable {
                                 isSearchExpandedByIcon = true
                                 coroutineScope.launch {
@@ -392,7 +389,7 @@ fun HomeScreenContent(
                         Icon(
                             imageVector = Icons.Default.Search,
                             contentDescription = "Open Search",
-                            tint = Color.White,
+                            tint = themeText,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -437,14 +434,14 @@ fun HomeScreenContent(
                         Icon(
                             imageVector = Icons.Default.Search,
                             contentDescription = "Search Icon",
-                            tint = Color.White.copy(alpha = 0.6f),
+                            tint = themeTextMuted,
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         BasicTextField(
                             value = searchQuery,
                             onValueChange = { viewModel.updateSearchQuery(it) },
-                            textStyle = TextStyle(color = Color.White, fontSize = 14.sp),
+                            textStyle = TextStyle(color = themeText, fontSize = 14.sp),
                             singleLine = true,
                             cursorBrush = SolidColor(Color.White),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -457,7 +454,7 @@ fun HomeScreenContent(
                                 if (searchQuery.isEmpty()) {
                                     Text(
                                         "Search songs, artists, albums...",
-                                        color = Color.White.copy(alpha = 0.3f),
+                                        color = themeTextFaint,
                                         fontSize = 14.sp
                                     )
                                 }
@@ -468,7 +465,7 @@ fun HomeScreenContent(
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Clear",
-                                tint = Color.White.copy(alpha = 0.6f),
+                                tint = themeTextMuted,
                                 modifier = Modifier
                                     .size(18.dp)
                                     .clickable { viewModel.updateSearchQuery("") }
@@ -496,7 +493,7 @@ fun HomeScreenContent(
                     text = "Search Results (${filteredSongs.size})",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = themeText
                 )
             }
 
@@ -543,18 +540,18 @@ fun HomeScreenContent(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Listening Time", fontSize = 11.sp, color = Color.White.copy(alpha = 0.4f))
-                            Text(formatListenTime, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(top = 4.dp))
+                            Text("Listening Time", fontSize = 11.sp, color = themeTextFaint)
+                            Text(formatListenTime, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = themeText, modifier = Modifier.padding(top = 4.dp))
                         }
                         Box(modifier = Modifier.width(1.dp).height(32.dp).background(Color.White.copy(alpha = 0.1f)))
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Total Tracks", fontSize = 11.sp, color = Color.White.copy(alpha = 0.4f))
-                            Text(songs.size.toString(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(top = 4.dp))
+                            Text("Total Tracks", fontSize = 11.sp, color = themeTextFaint)
+                            Text(songs.size.toString(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = themeText, modifier = Modifier.padding(top = 4.dp))
                         }
                         Box(modifier = Modifier.width(1.dp).height(32.dp).background(Color.White.copy(alpha = 0.1f)))
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Favorites", fontSize = 11.sp, color = Color.White.copy(alpha = 0.4f))
-                            Text(favorites.size.toString(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(top = 4.dp))
+                            Text("Favorites", fontSize = 11.sp, color = themeTextFaint)
+                            Text(favorites.size.toString(), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = themeText, modifier = Modifier.padding(top = 4.dp))
                         }
                     }
                 }
@@ -614,7 +611,7 @@ fun HomeScreenContent(
                                 text = "Recently Played",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White.copy(alpha = 0.6f)
+                                color = themeTextMuted
                             )
                             Text(
                                 text = "See All",
@@ -646,7 +643,7 @@ fun HomeScreenContent(
                             text = "Favorites Grid",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = themeText
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                         LazyRow(
@@ -675,17 +672,17 @@ fun HomeScreenContent(
                             text = "All Songs (${songs.size})",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = themeText
                         )
                         var expanded by remember { mutableStateOf(false) }
                         Box {
                             Row(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(12.dp))
-                                    .background(Color.White.copy(alpha = 0.05f))
+                                    .background(themeCardBg)
                                     .border(
                                         width = 1.dp,
-                                        color = Color.White.copy(alpha = 0.1f),
+                                        color = themeDivider,
                                         shape = RoundedCornerShape(12.dp)
                                     )
                                     .clickable { expanded = true }
@@ -707,12 +704,12 @@ fun HomeScreenContent(
                                     },
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color.White
+                                    color = themeText
                                 )
                                 Icon(
                                     imageVector = Icons.Default.ArrowDropDown,
                                     contentDescription = null,
-                                    tint = Color.White.copy(alpha = 0.6f),
+                                    tint = themeTextMuted,
                                     modifier = Modifier.size(16.dp)
                                 )
                             }
@@ -720,7 +717,7 @@ fun HomeScreenContent(
                             DropdownMenu(
                                 expanded = expanded,
                                 onDismissRequest = { expanded = false },
-                                modifier = Modifier.background(Color(0xFF222222))
+                                modifier = Modifier.background(themeDialogBg)
                             ) {
                                 listOf(
                                     SongSortOrder.NEW_ADD to "New Add",
@@ -786,7 +783,7 @@ fun HomeScreenContent(
                             text = "Albums (${albums.size})",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = themeText
                         )
                     }
 
@@ -820,7 +817,7 @@ fun HomeScreenContent(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             IconButton(onClick = { selectedAlbum = null }) {
-                                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = themeText)
                             }
                             Spacer(modifier = Modifier.width(8.dp))
                             Column {
@@ -828,14 +825,14 @@ fun HomeScreenContent(
                                     text = selectedAlbum ?: "Album Details",
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color.White,
+                                    color = themeText,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
                                     text = "${albumSongs.size} ${if (albumSongs.size == 1) "Song" else "Songs"}",
                                     fontSize = 12.sp,
-                                    color = Color.White.copy(alpha = 0.5f)
+                                    color = themeTextMuted
                                 )
                             }
                         }
@@ -858,7 +855,7 @@ fun HomeScreenContent(
                             text = "Artists (${artists.size})",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = themeText
                         )
                     }
 
@@ -890,7 +887,7 @@ fun HomeScreenContent(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             IconButton(onClick = { selectedArtist = null }) {
-                                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = themeText)
                             }
                             Spacer(modifier = Modifier.width(8.dp))
                             Column {
@@ -898,14 +895,14 @@ fun HomeScreenContent(
                                     text = selectedArtist ?: "Artist Details",
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color.White,
+                                    color = themeText,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
                                     text = "${artistSongs.size} ${if (artistSongs.size == 1) "Song" else "Songs"}",
                                     fontSize = 12.sp,
-                                    color = Color.White.copy(alpha = 0.5f)
+                                    color = themeTextMuted
                                 )
                             }
                         }
@@ -933,7 +930,7 @@ fun HomeScreenContent(
                                 text = "Playlists (${playlists.size})",
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White
+                                color = themeText
                             )
                         }
                     }
@@ -963,7 +960,7 @@ fun HomeScreenContent(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             IconButton(onClick = { selectedPlaylist = null }) {
-                                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = themeText)
                             }
                             Spacer(modifier = Modifier.width(8.dp))
                             Column {
@@ -971,14 +968,14 @@ fun HomeScreenContent(
                                     text = selectedPlaylist?.name ?: "Playlist Details",
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color.White,
+                                    color = themeText,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
                                     text = "${playlistSongs.size} ${if (playlistSongs.size == 1) "Song" else "Songs"}",
                                     fontSize = 12.sp,
-                                    color = Color.White.copy(alpha = 0.5f)
+                                    color = themeTextMuted
                                 )
                             }
                         }
@@ -1026,12 +1023,12 @@ fun FavoritesScreenContent(viewModel: MainViewModel) {
             text = "Your Favorites",
             fontSize = 24.sp,
             fontWeight = FontWeight.ExtraBold,
-            color = Color.White
+            color = themeText
         )
         Text(
             text = "Songs you've bookmarked offline.",
             fontSize = 12.sp,
-            color = Color.White.copy(alpha = 0.5f),
+            color = themeTextMuted,
             modifier = Modifier.padding(top = 2.dp, bottom = 16.dp)
         )
 
@@ -1090,7 +1087,7 @@ fun PlaylistsScreenContent(viewModel: MainViewModel) {
             text = "Your Library",
             fontSize = 24.sp,
             fontWeight = FontWeight.ExtraBold,
-            color = Color.White
+            color = themeText
         )
         
         Spacer(modifier = Modifier.height(16.dp))
@@ -1127,7 +1124,7 @@ fun PlaylistsScreenContent(viewModel: MainViewModel) {
                     text = "Custom Playlists",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = themeText
                 )
                 Button(
                     onClick = { showCreateDialog = true },
@@ -1202,16 +1199,16 @@ fun PlaylistsScreenContent(viewModel: MainViewModel) {
     if (showCreateDialog) {
         AlertDialog(
             onDismissRequest = { showCreateDialog = false },
-            title = { Text("Create Offline Playlist", color = Color.White) },
+            title = { Text("Create Offline Playlist", color = themeText) },
             text = {
                 TextField(
                     value = newPlaylistName,
                     onValueChange = { newPlaylistName = it },
-                    placeholder = { Text("e.g. Coding Beats", color = Color.White.copy(alpha = 0.4f)) },
+                    placeholder = { Text("e.g. Coding Beats", color = themeTextFaint) },
                     singleLine = true,
                     colors = TextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
+                        focusedTextColor = themeText,
+                        unfocusedTextColor = themeText,
                         focusedContainerColor = Color.White.copy(alpha = 0.05f),
                         unfocusedContainerColor = Color.White.copy(alpha = 0.05f)
                     ),
@@ -1233,10 +1230,10 @@ fun PlaylistsScreenContent(viewModel: MainViewModel) {
             },
             dismissButton = {
                 TextButton(onClick = { showCreateDialog = false }) {
-                    Text("Cancel", color = Color.White.copy(alpha = 0.6f))
+                    Text("Cancel", color = themeTextMuted)
                 }
             },
-            containerColor = Color(0xFF1E1E1E)
+            containerColor = themeDialogBg
         )
     }
 }
@@ -1369,28 +1366,29 @@ fun ImageCropperDialog(
         AlertDialog(
             onDismissRequest = onDismiss,
             confirmButton = {},
-            title = { Text("Loading Image...", color = Color.White) },
+            title = { Text("Loading Image...", color = themeText) },
             text = {
                 Box(modifier = Modifier.fillMaxWidth().height(150.dp), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
             },
-            containerColor = Color(0xFF1E1E1E)
+            containerColor = themeDialogBg
         )
     } else if (bitmap == null) {
         AlertDialog(
             onDismissRequest = onDismiss,
             confirmButton = {
                 TextButton(onClick = onDismiss) {
-                    Text("OK", color = Color.White)
+                    Text("OK", color = themeText)
                 }
             },
-            title = { Text("Error", color = Color.White) },
-            text = { Text("Unable to load the selected image.", color = Color.White.copy(alpha = 0.7f)) },
-            containerColor = Color(0xFF1E1E1E)
+            title = { Text("Error", color = themeText) },
+            text = { Text("Unable to load the selected image.", color = themeText.copy(alpha = 0.7f)) },
+            containerColor = themeDialogBg
         )
     } else {
         val loadedBitmap = bitmap!!
+        val canvasStrokeColor = themeText
         
         var scale by remember { mutableStateOf(1f) }
         var offset by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
@@ -1404,7 +1402,7 @@ fun ImageCropperDialog(
             title = {
                 Text(
                     text = "Crop Profile Picture",
-                    color = Color.White,
+                    color = themeText,
                     fontWeight = FontWeight.Bold,
                     fontSize = 20.sp,
                     textAlign = TextAlign.Center,
@@ -1418,7 +1416,7 @@ fun ImageCropperDialog(
                 ) {
                     Text(
                         text = "Drag to position, pinch or use slider to zoom",
-                        color = Color.White.copy(alpha = 0.6f),
+                        color = themeTextMuted,
                         fontSize = 12.sp,
                         modifier = Modifier.padding(bottom = 16.dp)
                     )
@@ -1484,7 +1482,7 @@ fun ImageCropperDialog(
                             )
                             
                             drawCircle(
-                                color = Color.White,
+                                color = canvasStrokeColor,
                                 radius = circleRadius,
                                 style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
                             )
@@ -1497,7 +1495,7 @@ fun ImageCropperDialog(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
                     ) {
-                        Icon(Icons.Default.Remove, contentDescription = "Zoom Out", tint = Color.White.copy(alpha = 0.6f))
+                        Icon(Icons.Default.Remove, contentDescription = "Zoom Out", tint = themeTextMuted)
                         Slider(
                             value = scale,
                             onValueChange = { scale = it },
@@ -1509,7 +1507,7 @@ fun ImageCropperDialog(
                                 inactiveTrackColor = Color.White.copy(alpha = 0.24f)
                             )
                         )
-                        Icon(Icons.Default.Add, contentDescription = "Zoom In", tint = Color.White.copy(alpha = 0.6f))
+                        Icon(Icons.Default.Add, contentDescription = "Zoom In", tint = themeTextMuted)
                     }
                 }
             },
@@ -1542,10 +1540,10 @@ fun ImageCropperDialog(
             },
             dismissButton = {
                 TextButton(onClick = onDismiss) {
-                    Text("Cancel", color = Color.White.copy(alpha = 0.6f))
+                    Text("Cancel", color = themeTextMuted)
                 }
             },
-            containerColor = Color(0xFF1E1E1E),
+            containerColor = themeDialogBg,
             shape = RoundedCornerShape(24.dp)
         )
     }
@@ -1605,7 +1603,7 @@ fun ProfileScreenContent(viewModel: MainViewModel) {
                 text = "My Profile",
                 fontSize = 24.sp,
                 fontWeight = FontWeight.ExtraBold,
-                color = Color.White
+                color = themeText
             )
         }
 
@@ -1642,7 +1640,7 @@ fun ProfileScreenContent(viewModel: MainViewModel) {
                                 .align(Alignment.BottomEnd),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.CameraAlt, contentDescription = "Edit profile picture", tint = Color.White, modifier = Modifier.size(12.dp))
+                            Icon(Icons.Default.CameraAlt, contentDescription = "Edit profile picture", tint = themeText, modifier = Modifier.size(12.dp))
                         }
                     }
 
@@ -1662,8 +1660,8 @@ fun ProfileScreenContent(viewModel: MainViewModel) {
                                     }
                                 }),
                                 colors = TextFieldDefaults.colors(
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White
+                                    focusedTextColor = themeText,
+                                    unfocusedTextColor = themeText
                                 ),
                                 modifier = Modifier.fillMaxWidth()
                             )
@@ -1673,7 +1671,7 @@ fun ProfileScreenContent(viewModel: MainViewModel) {
                                     text = settings.userName,
                                     fontSize = 20.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color.White
+                                    color = themeText
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Icon(
@@ -1691,7 +1689,7 @@ fun ProfileScreenContent(viewModel: MainViewModel) {
                             Text(
                                 text = "Premium BeatFlow Listener",
                                 fontSize = 12.sp,
-                                color = Color.White.copy(alpha = 0.5f)
+                                color = themeTextMuted
                             )
                         }
                     }
@@ -1705,7 +1703,7 @@ fun ProfileScreenContent(viewModel: MainViewModel) {
                 text = "Music Statistics",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = themeText
             )
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -1744,7 +1742,7 @@ fun ProfileScreenContent(viewModel: MainViewModel) {
                 text = "About Developer",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = themeText
             )
             Spacer(modifier = Modifier.height(12.dp))
             GlassCard(
@@ -1756,13 +1754,13 @@ fun ProfileScreenContent(viewModel: MainViewModel) {
                     Text(
                         text = "Mohan Singh Parmar",
                         fontWeight = FontWeight.Bold,
-                        color = Color.White,
+                        color = themeText,
                         fontSize = 16.sp
                     )
                     Text(
                         text = "Android Developer • Cybersecurity & AI Enthusiast",
                         fontSize = 12.sp,
-                        color = Color.White.copy(alpha = 0.5f),
+                        color = themeTextMuted,
                         modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
                     )
 
@@ -1771,7 +1769,7 @@ fun ProfileScreenContent(viewModel: MainViewModel) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
-                            .background(Color.White.copy(alpha = 0.05f))
+                            .background(themeCardBg)
                             .clickable {
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/monxcode"))
                                 context.startActivity(intent)
@@ -1789,11 +1787,11 @@ fun ProfileScreenContent(viewModel: MainViewModel) {
                         Text(
                             text = "GitHub Row: @monxcode",
                             fontWeight = FontWeight.SemiBold,
-                            color = Color.White,
+                            color = themeText,
                             fontSize = 13.sp,
                             modifier = Modifier.weight(1f)
                         )
-                        Icon(Icons.Default.ArrowForward, contentDescription = null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.ArrowForward, contentDescription = null, tint = themeTextFaint, modifier = Modifier.size(16.dp))
                     }
                 }
             }
@@ -1806,7 +1804,7 @@ fun ProfileScreenContent(viewModel: MainViewModel) {
                 text = "Made with ❤️ by Mohan Singh Parmar",
                 textAlign = TextAlign.Center,
                 fontSize = 12.sp,
-                color = Color.White.copy(alpha = 0.3f),
+                color = themeTextFaint,
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -1815,8 +1813,8 @@ fun ProfileScreenContent(viewModel: MainViewModel) {
     if (showPhotoOptionsDialog) {
         AlertDialog(
             onDismissRequest = { showPhotoOptionsDialog = false },
-            title = { Text("Profile Photo", color = Color.White) },
-            text = { Text("Choose an option to update your profile picture.", color = Color.White.copy(alpha = 0.7f)) },
+            title = { Text("Profile Photo", color = themeText) },
+            text = { Text("Choose an option to update your profile picture.", color = themeText.copy(alpha = 0.7f)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -1843,11 +1841,11 @@ fun ProfileScreenContent(viewModel: MainViewModel) {
                         Spacer(modifier = Modifier.width(8.dp))
                     }
                     TextButton(onClick = { showPhotoOptionsDialog = false }) {
-                        Text("Cancel", color = Color.White.copy(alpha = 0.6f))
+                        Text("Cancel", color = themeTextMuted)
                     }
                 }
             },
-            containerColor = Color(0xFF1E1E1E)
+            containerColor = themeDialogBg
         )
     }
 
@@ -1882,8 +1880,8 @@ fun StatCard(label: String, value: String, icon: ImageVector, settings: BeatFlow
         Column {
             Icon(imageVector = icon, contentDescription = null, tint = Accents[settings.accentColorIndex], modifier = Modifier.size(24.dp))
             Spacer(modifier = Modifier.height(12.dp))
-            Text(text = value, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
-            Text(text = label, fontSize = 11.sp, color = Color.White.copy(alpha = 0.4f), modifier = Modifier.padding(top = 2.dp))
+            Text(text = value, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = themeText)
+            Text(text = label, fontSize = 11.sp, color = themeTextFaint, modifier = Modifier.padding(top = 2.dp))
         }
     }
 }
@@ -1940,13 +1938,13 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                 text = "Settings",
                 fontSize = 24.sp,
                 fontWeight = FontWeight.ExtraBold,
-                color = Color.White
+                color = themeText
             )
         }
 
         // 1. APPEARANCE
         item {
-            Text("Appearance", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Text("Appearance", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = themeText)
             Spacer(modifier = Modifier.height(12.dp))
             GlassCard(
                 modifier = Modifier.fillMaxWidth(),
@@ -1960,7 +1958,7 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Dark Mode", color = Color.White, fontSize = 14.sp)
+                        Text("Dark Mode", color = themeText, fontSize = 14.sp)
                         Switch(
                             checked = settings.isDarkMode,
                             onCheckedChange = { viewModel.updateThemeSettings(it, settings.isAmoledMode, settings.isGlassEnabled, settings.accentColorIndex) },
@@ -1974,7 +1972,7 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("AMOLED Pitch Black", color = Color.White, fontSize = 14.sp)
+                        Text("AMOLED Pitch Black", color = themeText, fontSize = 14.sp)
                         Switch(
                             checked = settings.isAmoledMode,
                             onCheckedChange = { viewModel.updateThemeSettings(settings.isDarkMode, it, settings.isGlassEnabled, settings.accentColorIndex) },
@@ -1984,7 +1982,7 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
 
                     // Accent Colors Row Selector
                     Column {
-                        Text("Glow Accent Color", color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
+                        Text("Glow Accent Color", color = themeTextMuted, fontSize = 12.sp)
                         Spacer(modifier = Modifier.height(12.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                             Accents.forEachIndexed { index, color ->
@@ -1995,7 +1993,7 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                                         .background(color)
                                         .border(
                                             width = if (settings.accentColorIndex == index) 3.dp else 0.dp,
-                                            color = Color.White,
+                                            color = themeText,
                                             shape = CircleShape
                                         )
                                         .clickable {
@@ -2016,7 +2014,7 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
 
         // 2. LIBRARY SCANNER (CONCISE SINGLE OPTION ENTRY)
         item {
-            Text("Library", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Text("Library", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = themeText)
             Spacer(modifier = Modifier.height(12.dp))
             GlassCard(
                 modifier = Modifier.fillMaxWidth(),
@@ -2047,14 +2045,14 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                         }
                         Spacer(modifier = Modifier.width(16.dp))
                         Column {
-                            Text("Music Scanner & Filters", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                            Text("Manage directories, file rules, and rescan audio", color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp)
+                            Text("Music Scanner & Filters", color = themeText, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                            Text("Manage directories, file rules, and rescan audio", color = themeTextMuted, fontSize = 11.sp)
                         }
                     }
                     Icon(
                         imageVector = Icons.Default.ArrowForward,
                         contentDescription = "Navigate",
-                        tint = Color.White.copy(alpha = 0.4f),
+                        tint = themeTextFaint,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -2067,7 +2065,7 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
 
         // 3. PLAYBACK speed
         item {
-            Text("Playback", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Text("Playback", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = themeText)
             Spacer(modifier = Modifier.height(12.dp))
             val currentSpeed by viewModel.playbackSpeed.collectAsStateWithLifecycle()
             GlassCard(
@@ -2081,7 +2079,7 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Playback Speed", color = Color.White, fontSize = 14.sp)
+                        Text("Playback Speed", color = themeText, fontSize = 14.sp)
                         Text("${"%.2f".format(currentSpeed)}x", color = Accents[settings.accentColorIndex], fontWeight = FontWeight.Bold)
                     }
                     Slider(
@@ -2099,7 +2097,7 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
 
         // 4. ABOUT & LEGAL
         item {
-            Text("About BeatFlow", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Text("About BeatFlow", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = themeText)
             Spacer(modifier = Modifier.height(12.dp))
             GlassCard(
                 modifier = Modifier.fillMaxWidth(),
@@ -2107,15 +2105,15 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                 isDark = settings.isDarkMode
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Offline Architecture", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
-                    Text("This app operates exclusively as a client-side database. It contains zero background servers, cloud modules, API keys, tracking SDKs, or promotional items.", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+                    Text("Offline Architecture", fontWeight = FontWeight.Bold, color = themeText, fontSize = 14.sp)
+                    Text("This app operates exclusively as a client-side database. It contains zero background servers, cloud modules, API keys, tracking SDKs, or promotional items.", color = themeTextMuted, fontSize = 12.sp)
+                    HorizontalDivider(color = themeDivider)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Product Version", color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
-                        Text("v1.0.0 (Production Stable)", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("Product Version", color = themeTextMuted, fontSize = 12.sp)
+                        Text("v1.0.0 (Production Stable)", color = themeText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -2127,7 +2125,7 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(if (settings.isAmoledMode) Color.Black else Color(0xFF121212))
+                    .background(if (!settings.isDarkMode) LightCanvas else if (settings.isAmoledMode) Color.Black else Color(0xFF121212))
             ) {
                 LazyColumn(
                     modifier = Modifier
@@ -2149,12 +2147,12 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                                 modifier = Modifier
                                     .size(40.dp)
                                     .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.05f))
+                                    .background(themeCardBg)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.ArrowBack,
                                     contentDescription = "Back",
-                                    tint = Color.White
+                                    tint = themeText
                                 )
                             }
                             Spacer(modifier = Modifier.width(16.dp))
@@ -2162,7 +2160,7 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                                 text = "Music Scanner",
                                 fontSize = 20.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White
+                                color = themeText
                             )
                         }
                     }
@@ -2202,13 +2200,13 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                                                 text = "$progress%",
                                                 fontSize = 32.sp,
                                                 fontWeight = FontWeight.Black,
-                                                color = Color.White
+                                                color = themeText
                                             )
                                             Spacer(modifier = Modifier.height(4.dp))
                                             Text(
                                                 text = "Scanning",
                                                 fontSize = 11.sp,
-                                                color = Color.White.copy(alpha = 0.5f),
+                                                color = themeTextMuted,
                                                 fontWeight = FontWeight.Bold
                                             )
                                         }
@@ -2218,7 +2216,7 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
 
                                     Text(
                                         text = scanStatus,
-                                        color = Color.White,
+                                        color = themeText,
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.Medium,
                                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -2234,7 +2232,7 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                                         horizontalArrangement = Arrangement.Center,
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(16.dp))
-                                            .background(Color.White.copy(alpha = 0.05f))
+                                            .background(themeCardBg)
                                             .padding(horizontal = 16.dp, vertical = 8.dp)
                                     ) {
                                         Icon(
@@ -2246,7 +2244,7 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
                                             text = "$filesFound new files discovered",
-                                            color = Color.White.copy(alpha = 0.8f),
+                                            color = themeText.copy(alpha = 0.8f),
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.SemiBold
                                         )
@@ -2263,7 +2261,7 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
 
                                     Text(
                                         text = if (scanStatus == "Ready to Scan") "Ready to Scan Device" else scanStatus,
-                                        color = Color.White,
+                                        color = themeText,
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.Bold,
                                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -2273,7 +2271,7 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
 
                                     Text(
                                         text = "Search local folders for new tracks.",
-                                        color = Color.White.copy(alpha = 0.5f),
+                                        color = themeTextMuted,
                                         fontSize = 12.sp,
                                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                     )
@@ -2306,7 +2304,7 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                             text = "System Permissions & Storage",
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = themeText
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         GlassCard(
@@ -2321,7 +2319,7 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text("Storage Permission", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                        Text("Storage Permission", color = themeText, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                         Text(
                                             text = if (hasPermissionState) "Permission Granted" else "Access Required to scan audio files",
                                             color = if (hasPermissionState) NeonGreen else HotPink,
@@ -2366,13 +2364,13 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .clip(RoundedCornerShape(8.dp))
-                                            .background(Color.White.copy(alpha = 0.05f))
+                                            .background(themeCardBg)
                                             .padding(12.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Icon(Icons.Default.Security, contentDescription = null, tint = NeonGreen, modifier = Modifier.size(16.dp))
                                         Spacer(modifier = Modifier.width(8.dp))
-                                        Text("Authorized to load device audio files.", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
+                                        Text("Authorized to load device audio files.", color = themeText.copy(alpha = 0.7f), fontSize = 12.sp)
                                     }
                                 }
                             }
@@ -2385,7 +2383,7 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                             text = "Filter Rules",
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = themeText
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         GlassCard(
@@ -2399,7 +2397,7 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("Ignore shorter than 1 min", color = Color.White, fontSize = 14.sp)
+                                    Text("Ignore shorter than 1 min", color = themeText, fontSize = 14.sp)
                                     Switch(
                                         checked = settings.ignoreShorterThan1Min,
                                         onCheckedChange = {
@@ -2421,7 +2419,7 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("Ignore smaller than 100 KB", color = Color.White, fontSize = 14.sp)
+                                    Text("Ignore smaller than 100 KB", color = themeText, fontSize = 14.sp)
                                     Switch(
                                         checked = settings.ignoreSmallerThan100KB,
                                         onCheckedChange = {
@@ -2443,7 +2441,7 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("Ignore hidden files/folders", color = Color.White, fontSize = 14.sp)
+                                    Text("Ignore hidden files/folders", color = themeText, fontSize = 14.sp)
                                     Switch(
                                         checked = settings.ignoreHidden,
                                         onCheckedChange = {
@@ -2465,7 +2463,7 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("Scan SD Card folders", color = Color.White, fontSize = 14.sp)
+                                    Text("Scan SD Card folders", color = themeText, fontSize = 14.sp)
                                     Switch(
                                         checked = settings.scanSDCard,
                                         onCheckedChange = {
@@ -2487,7 +2485,7 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text("Scan Downloads directory", color = Color.White, fontSize = 14.sp)
+                                    Text("Scan Downloads directory", color = themeText, fontSize = 14.sp)
                                     Switch(
                                         checked = settings.scanDownloads,
                                         onCheckedChange = {
@@ -2513,7 +2511,7 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                             text = "Direct Folder Scanner (Force Add)",
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = themeText
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         GlassCard(
@@ -2524,7 +2522,7 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                                 Text(
                                     text = "Specify a direct directory path to scan files recursively. This bypasses system indexing databases entirely.",
-                                    color = Color.White.copy(alpha = 0.6f),
+                                    color = themeTextMuted,
                                     fontSize = 12.sp,
                                     lineHeight = 18.sp
                                 )
@@ -2532,12 +2530,12 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                                 TextField(
                                     value = folderInputPath,
                                     onValueChange = { folderInputPath = it },
-                                    label = { Text("Custom Folder Path", color = Color.White.copy(alpha = 0.4f)) },
-                                    placeholder = { Text("e.g. /sdcard/Music", color = Color.White.copy(alpha = 0.3f)) },
+                                    label = { Text("Custom Folder Path", color = themeTextFaint) },
+                                    placeholder = { Text("e.g. /sdcard/Music", color = themeTextFaint) },
                                     singleLine = true,
                                     colors = TextFieldDefaults.colors(
-                                        focusedTextColor = Color.White,
-                                        unfocusedTextColor = Color.White,
+                                        focusedTextColor = themeText,
+                                        unfocusedTextColor = themeText,
                                         focusedContainerColor = Color.White.copy(alpha = 0.05f),
                                         unfocusedContainerColor = Color.White.copy(alpha = 0.02f),
                                         focusedIndicatorColor = Accents[settings.accentColorIndex],
@@ -2612,7 +2610,7 @@ fun LatestTrackCard(
         modifier = Modifier
             .width(130.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(if (settings.isGlassEnabled) GlassDarkSurface.copy(alpha = 0.1f) else Color(0xFF1E1E1E))
+            .background(if (settings.isGlassEnabled) (if (settings.isDarkMode) GlassDarkSurface.copy(alpha = 0.1f) else GlassLightSurface.copy(alpha = 0.15f)) else themeCardBg)
             .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
             .bounceClick(onClick = onPlay)
             .padding(12.dp)
@@ -2631,7 +2629,7 @@ fun LatestTrackCard(
                 Icon(
                     imageVector = Icons.Default.MusicNote,
                     contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.8f),
+                    tint = themeText.copy(alpha = 0.8f),
                     modifier = Modifier.size(36.dp)
                 )
             }
@@ -2639,14 +2637,14 @@ fun LatestTrackCard(
             Text(
                 text = song.title,
                 fontWeight = FontWeight.Bold,
-                color = Color.White,
+                color = themeText,
                 fontSize = 13.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = song.artist,
-                color = Color.White.copy(alpha = 0.5f),
+                color = themeTextMuted,
                 fontSize = 11.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -2678,7 +2676,7 @@ fun SongListItem(
         var tempArtist by remember { mutableStateOf(song.artist) }
         AlertDialog(
             onDismissRequest = { showRenameDialog = false },
-            title = { Text("Rename Song", color = Color.White, fontWeight = FontWeight.Bold) },
+            title = { Text("Rename Song", color = themeText, fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedTextField(
@@ -2686,8 +2684,8 @@ fun SongListItem(
                         onValueChange = { tempTitle = it },
                         label = { Text("Song Title") },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
+                            focusedTextColor = themeText,
+                            unfocusedTextColor = themeText,
                             focusedBorderColor = Accents[settings.accentColorIndex],
                             unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
                         ),
@@ -2699,8 +2697,8 @@ fun SongListItem(
                         onValueChange = { tempArtist = it },
                         label = { Text("Artist") },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
+                            focusedTextColor = themeText,
+                            unfocusedTextColor = themeText,
                             focusedBorderColor = Accents[settings.accentColorIndex],
                             unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
                         ),
@@ -2724,18 +2722,18 @@ fun SongListItem(
             },
             dismissButton = {
                 TextButton(onClick = { showRenameDialog = false }) {
-                    Text("Cancel", color = Color.White.copy(alpha = 0.6f))
+                    Text("Cancel", color = themeTextMuted)
                 }
             },
-            containerColor = Color(0xFF1E1E1E)
+            containerColor = themeDialogBg
         )
     }
 
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Remove from Library", color = Color.White, fontWeight = FontWeight.Bold) },
-            text = { Text("Are you sure you want to remove '${song.title}' from your library? The database entry will be deleted, but the physical file won't be deleted.", color = Color.White.copy(alpha = 0.7f)) },
+            title = { Text("Remove from Library", color = themeText, fontWeight = FontWeight.Bold) },
+            text = { Text("Are you sure you want to remove '${song.title}' from your library? The database entry will be deleted, but the physical file won't be deleted.", color = themeText.copy(alpha = 0.7f)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -2749,10 +2747,10 @@ fun SongListItem(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel", color = Color.White.copy(alpha = 0.6f))
+                    Text("Cancel", color = themeTextMuted)
                 }
             },
-            containerColor = Color(0xFF1E1E1E)
+            containerColor = themeDialogBg
         )
     }
 
@@ -2780,7 +2778,7 @@ fun SongListItem(
         }
         AlertDialog(
             onDismissRequest = { showInfoDialog = false },
-            title = { Text("Song Information", color = Color.White, fontWeight = FontWeight.Bold) },
+            title = { Text("Song Information", color = themeText, fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(
@@ -2792,8 +2790,8 @@ fun SongListItem(
                         "File Size" to fileSize
                     ).forEach { (label, value) ->
                         Column {
-                            Text(text = label, color = Color.White.copy(alpha = 0.4f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            Text(text = value, color = Color.White, fontSize = 13.sp)
+                            Text(text = label, color = themeTextFaint, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text(text = value, color = themeText, fontSize = 13.sp)
                         }
                     }
                 }
@@ -2803,10 +2801,10 @@ fun SongListItem(
                     onClick = { showInfoDialog = false },
                     colors = ButtonDefaults.buttonColors(containerColor = Accents[settings.accentColorIndex])
                 ) {
-                    Text("OK", color = Color.White, fontWeight = FontWeight.Bold)
+                    Text("OK", color = themeText, fontWeight = FontWeight.Bold)
                 }
             },
-            containerColor = Color(0xFF1E1E1E)
+            containerColor = themeDialogBg
         )
     }
 
@@ -2814,7 +2812,7 @@ fun SongListItem(
         var newPlaylistName by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showPlaylistDialog = false },
-            title = { Text("Add to Playlist", color = Color.White, fontWeight = FontWeight.Bold) },
+            title = { Text("Add to Playlist", color = themeText, fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Row(
@@ -2827,8 +2825,8 @@ fun SongListItem(
                             onValueChange = { newPlaylistName = it },
                             label = { Text("New Playlist Name") },
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
+                                focusedTextColor = themeText,
+                                unfocusedTextColor = themeText,
                                 focusedBorderColor = Accents[settings.accentColorIndex],
                                 unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
                             ),
@@ -2852,12 +2850,12 @@ fun SongListItem(
                         }
                     }
 
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    HorizontalDivider(color = themeCardBgSelected)
 
-                    Text("Or select existing:", color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text("Or select existing:", color = themeTextMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
 
                     if (playlists.isEmpty()) {
-                        Text("No playlists created yet.", color = Color.White.copy(alpha = 0.4f), fontSize = 13.sp, modifier = Modifier.padding(vertical = 12.dp))
+                        Text("No playlists created yet.", color = themeTextFaint, fontSize = 13.sp, modifier = Modifier.padding(vertical = 12.dp))
                     } else {
                         LazyColumn(
                             modifier = Modifier
@@ -2881,7 +2879,7 @@ fun SongListItem(
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
                                     Icon(Icons.Default.QueueMusic, contentDescription = null, tint = Accents[settings.accentColorIndex], modifier = Modifier.size(18.dp))
-                                    Text(playlist.name, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                                    Text(playlist.name, color = themeText, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                                 }
                             }
                         }
@@ -2891,10 +2889,10 @@ fun SongListItem(
             confirmButton = {},
             dismissButton = {
                 TextButton(onClick = { showPlaylistDialog = false }) {
-                    Text("Close", color = Color.White.copy(alpha = 0.6f))
+                    Text("Close", color = themeTextMuted)
                 }
             },
-            containerColor = Color(0xFF1E1E1E)
+            containerColor = themeDialogBg
         )
     }
 
@@ -2903,7 +2901,7 @@ fun SongListItem(
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
             .background(if (settings.isGlassEnabled) GlassDarkSurface.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.03f))
-            .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(14.dp))
+            .border(1.dp, themeCardBorder, RoundedCornerShape(14.dp))
             .bounceClick(onClick = onPlay)
             .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -2912,7 +2910,7 @@ fun SongListItem(
             modifier = Modifier
                 .size(48.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(Color.White.copy(alpha = 0.05f))
+                .background(themeCardBg)
                 .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(10.dp)),
             contentAlignment = Alignment.Center
         ) {
@@ -2930,14 +2928,14 @@ fun SongListItem(
             Text(
                 text = song.title,
                 fontWeight = FontWeight.SemiBold,
-                color = Color.White,
+                color = themeText,
                 fontSize = 14.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = song.artist,
-                color = Color.White.copy(alpha = 0.5f),
+                color = themeTextMuted,
                 fontSize = 12.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -2959,7 +2957,7 @@ fun SongListItem(
                 Icon(
                     imageVector = Icons.Default.MoreVert,
                     contentDescription = "More Options",
-                    tint = Color.White.copy(alpha = 0.6f),
+                    tint = themeTextMuted,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -2967,10 +2965,10 @@ fun SongListItem(
             DropdownMenu(
                 expanded = expandedMenu,
                 onDismissRequest = { expandedMenu = false },
-                modifier = Modifier.background(Color(0xFF222222))
+                modifier = Modifier.background(themeDialogBg)
             ) {
                 DropdownMenuItem(
-                    text = { Text("Play Next", color = Color.White, fontSize = 13.sp) },
+                    text = { Text("Play Next", color = themeText, fontSize = 13.sp) },
                     onClick = {
                         viewModel.playNext(song)
                         android.widget.Toast.makeText(context, "Playing next: '${song.title}'", android.widget.Toast.LENGTH_SHORT).show()
@@ -2987,7 +2985,7 @@ fun SongListItem(
                 )
 
                 DropdownMenuItem(
-                    text = { Text("Add to Playlist", color = Color.White, fontSize = 13.sp) },
+                    text = { Text("Add to Playlist", color = themeText, fontSize = 13.sp) },
                     onClick = {
                         showPlaylistDialog = true
                         expandedMenu = false
@@ -3003,7 +3001,7 @@ fun SongListItem(
                 )
 
                 DropdownMenuItem(
-                    text = { Text("Song Info", color = Color.White, fontSize = 13.sp) },
+                    text = { Text("Song Info", color = themeText, fontSize = 13.sp) },
                     onClick = {
                         showInfoDialog = true
                         expandedMenu = false
@@ -3019,7 +3017,7 @@ fun SongListItem(
                 )
 
                 DropdownMenuItem(
-                    text = { Text("Rename", color = Color.White, fontSize = 13.sp) },
+                    text = { Text("Rename", color = themeText, fontSize = 13.sp) },
                     onClick = {
                         showRenameDialog = true
                         expandedMenu = false
@@ -3035,7 +3033,7 @@ fun SongListItem(
                 )
 
                 DropdownMenuItem(
-                    text = { Text("Share", color = Color.White, fontSize = 13.sp) },
+                    text = { Text("Share", color = themeText, fontSize = 13.sp) },
                     onClick = {
                         try {
                             val intent = Intent(Intent.ACTION_SEND).apply {
@@ -3101,8 +3099,8 @@ fun PlaylistListItem(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(Color.White.copy(alpha = 0.03f))
-            .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+            .background(themeCardBg)
+            .border(1.dp, themeCardBorder, RoundedCornerShape(12.dp))
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
@@ -3116,8 +3114,8 @@ fun PlaylistListItem(
             )
             Spacer(modifier = Modifier.width(16.dp))
             Column {
-                Text(playlist.name, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
-                Text("Offline collection", color = Color.White.copy(alpha = 0.4f), fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
+                Text(playlist.name, fontWeight = FontWeight.Bold, color = themeText, fontSize = 14.sp)
+                Text("Offline collection", color = themeTextFaint, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
             }
         }
         IconButton(onClick = onDelete) {
@@ -3137,8 +3135,8 @@ fun FolderListItem(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(Color.White.copy(alpha = 0.03f))
-            .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+            .background(themeCardBg)
+            .border(1.dp, themeCardBorder, RoundedCornerShape(12.dp))
             .clickable(onClick = onPlayFolder)
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -3153,8 +3151,8 @@ fun FolderListItem(
             )
             Spacer(modifier = Modifier.width(16.dp))
             Column {
-                Text(name, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
-                Text("$songsCount tracks inside", color = Color.White.copy(alpha = 0.4f), fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
+                Text(name, fontWeight = FontWeight.Bold, color = themeText, fontSize = 14.sp)
+                Text("$songsCount tracks inside", color = themeTextFaint, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
             }
         }
         Icon(
@@ -3184,20 +3182,20 @@ fun EmptyStatePlaceholder(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = Color.White.copy(alpha = 0.2f),
+            tint = themeText.copy(alpha = 0.2f),
             modifier = Modifier.size(64.dp)
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
             text = title,
             fontWeight = FontWeight.Bold,
-            color = Color.White.copy(alpha = 0.8f),
+            color = themeText.copy(alpha = 0.8f),
             fontSize = 16.sp,
             textAlign = TextAlign.Center
         )
         Text(
             text = subtitle,
-            color = Color.White.copy(alpha = 0.4f),
+            color = themeTextFaint,
             fontSize = 12.sp,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = 16.dp).padding(top = 4.dp),
@@ -3233,7 +3231,7 @@ fun AlbumListItem(
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(if (settings.isGlassEnabled) GlassDarkSurface.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.03f))
-            .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
+            .border(1.dp, themeCardBorder, RoundedCornerShape(16.dp))
             .bounceClick(onClick = onClick)
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -3250,7 +3248,7 @@ fun AlbumListItem(
             Icon(
                 imageVector = Icons.Default.Album,
                 contentDescription = null,
-                tint = Color.White.copy(alpha = 0.8f),
+                tint = themeText.copy(alpha = 0.8f),
                 modifier = Modifier.size(24.dp)
             )
         }
@@ -3262,14 +3260,14 @@ fun AlbumListItem(
             Text(
                 text = album,
                 fontWeight = FontWeight.Bold,
-                color = Color.White,
+                color = themeText,
                 fontSize = 15.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = "$artist • $trackCount ${if (trackCount == 1) "Song" else "Songs"}",
-                color = Color.White.copy(alpha = 0.5f),
+                color = themeTextMuted,
                 fontSize = 12.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -3280,7 +3278,7 @@ fun AlbumListItem(
         Icon(
             imageVector = Icons.Default.ArrowForward,
             contentDescription = "Open Album",
-            tint = Color.White.copy(alpha = 0.4f),
+            tint = themeTextFaint,
             modifier = Modifier.size(18.dp)
         )
     }
@@ -3299,7 +3297,7 @@ fun ArtistListItem(
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(if (settings.isGlassEnabled) GlassDarkSurface.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.03f))
-            .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
+            .border(1.dp, themeCardBorder, RoundedCornerShape(16.dp))
             .bounceClick(onClick = onClick)
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -3316,7 +3314,7 @@ fun ArtistListItem(
             Icon(
                 imageVector = Icons.Default.Person,
                 contentDescription = null,
-                tint = Color.White.copy(alpha = 0.8f),
+                tint = themeText.copy(alpha = 0.8f),
                 modifier = Modifier.size(24.dp)
             )
         }
@@ -3328,14 +3326,14 @@ fun ArtistListItem(
             Text(
                 text = artist,
                 fontWeight = FontWeight.Bold,
-                color = Color.White,
+                color = themeText,
                 fontSize = 15.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = "$trackCount ${if (trackCount == 1) "Song" else "Songs"}",
-                color = Color.White.copy(alpha = 0.5f),
+                color = themeTextMuted,
                 fontSize = 12.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -3346,7 +3344,7 @@ fun ArtistListItem(
         Icon(
             imageVector = Icons.Default.ArrowForward,
             contentDescription = "Open Artist",
-            tint = Color.White.copy(alpha = 0.4f),
+            tint = themeTextFaint,
             modifier = Modifier.size(18.dp)
         )
     }
@@ -3365,7 +3363,7 @@ fun PlaylistListItemHome(
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(if (settings.isGlassEnabled) GlassDarkSurface.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.03f))
-            .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
+            .border(1.dp, themeCardBorder, RoundedCornerShape(16.dp))
             .bounceClick(onClick = onClick)
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -3381,7 +3379,7 @@ fun PlaylistListItemHome(
             Icon(
                 imageVector = Icons.Default.QueueMusic,
                 contentDescription = null,
-                tint = Color.White.copy(alpha = 0.8f),
+                tint = themeText.copy(alpha = 0.8f),
                 modifier = Modifier.size(24.dp)
             )
         }
@@ -3393,14 +3391,14 @@ fun PlaylistListItemHome(
             Text(
                 text = playlist.name,
                 fontWeight = FontWeight.Bold,
-                color = Color.White,
+                color = themeText,
                 fontSize = 15.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = "Custom Playlist",
-                color = Color.White.copy(alpha = 0.5f),
+                color = themeTextMuted,
                 fontSize = 12.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

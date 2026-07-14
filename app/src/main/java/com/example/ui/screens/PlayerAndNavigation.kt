@@ -99,6 +99,7 @@ fun MainContainerScreen(
                             label = "Home",
                             isActive = activeTab == 0,
                             accentColor = accentColor,
+                            isDark = settings.isDarkMode,
                             onClick = { activeTab = 0 }
                         )
 
@@ -108,6 +109,7 @@ fun MainContainerScreen(
                             label = "Favs",
                             isActive = activeTab == 1,
                             accentColor = accentColor,
+                            isDark = settings.isDarkMode,
                             onClick = { activeTab = 1 }
                         )
 
@@ -120,6 +122,7 @@ fun MainContainerScreen(
                             label = "Library",
                             isActive = activeTab == 2,
                             accentColor = accentColor,
+                            isDark = settings.isDarkMode,
                             onClick = { activeTab = 2 }
                         )
 
@@ -129,6 +132,7 @@ fun MainContainerScreen(
                             label = "Settings",
                             isActive = activeTab == 3,
                             accentColor = accentColor,
+                            isDark = settings.isDarkMode,
                             onClick = { activeTab = 3 }
                         )
                     }
@@ -234,6 +238,7 @@ fun NavBarItem(
     label: String,
     isActive: Boolean,
     accentColor: Color,
+    isDark: Boolean,
     onClick: () -> Unit
 ) {
     Box(
@@ -246,7 +251,7 @@ fun NavBarItem(
         Icon(
             imageVector = icon,
             contentDescription = label,
-            tint = if (isActive) accentColor else Color.White.copy(alpha = 0.4f),
+            tint = if (isActive) accentColor else (if (isDark) Color.White else Color.Black).copy(alpha = 0.4f),
             modifier = Modifier.size(24.dp)
         )
     }
@@ -684,11 +689,18 @@ fun SleepTimerBottomSheet(
 ) {
     var customTimeInput by remember { mutableStateOf("") }
     val sleepRemaining by viewModel.sleepTimerRemainingSec.collectAsStateWithLifecycle()
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val isDark = settings.isDarkMode
+    val bTextColor = if (isDark) Color.White else Color(0xFF121212)
+    val bSubTextColor = if (isDark) Color.White.copy(alpha = 0.6f) else Color(0xFF121212).copy(alpha = 0.6f)
+    val bMutedColor = if (isDark) Color.White.copy(alpha = 0.4f) else Color(0xFF121212).copy(alpha = 0.4f)
+    val bPlaceholderColor = if (isDark) Color.White.copy(alpha = 0.3f) else Color(0xFF121212).copy(alpha = 0.3f)
+    val bContainerColor = if (isDark) Color.White.copy(alpha = 0.05f) else Color.Black.copy(alpha = 0.05f)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFF1E1E1E),
-        contentColor = Color.White
+        containerColor = if (isDark) Color(0xFF1E1E1E) else Color.White,
+        contentColor = bTextColor
     ) {
         Column(
             modifier = Modifier
@@ -701,7 +713,7 @@ fun SleepTimerBottomSheet(
                 text = "Configure Sleep Timer",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = bTextColor
             )
 
             if (sleepRemaining > 0) {
@@ -710,7 +722,7 @@ fun SleepTimerBottomSheet(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Active Timer Running:", fontSize = 14.sp, color = Color.White.copy(alpha = 0.6f))
+                    Text("Active Timer Running:", fontSize = 14.sp, color = bSubTextColor)
                     Button(
                         onClick = {
                             viewModel.cancelSleepTimer()
@@ -741,7 +753,7 @@ fun SleepTimerBottomSheet(
             }
 
             // Custom timer row
-            Text("Or set custom duration (in minutes):", fontSize = 12.sp, color = Color.White.copy(alpha = 0.4f))
+            Text("Or set custom duration (in minutes):", fontSize = 12.sp, color = bMutedColor)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -750,14 +762,14 @@ fun SleepTimerBottomSheet(
                 TextField(
                     value = customTimeInput,
                     onValueChange = { customTimeInput = it },
-                    placeholder = { Text("e.g. 25", color = Color.White.copy(alpha = 0.3f)) },
+                    placeholder = { Text("e.g. 25", color = bPlaceholderColor) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
                     colors = TextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedContainerColor = Color.White.copy(alpha = 0.05f),
-                        unfocusedContainerColor = Color.White.copy(alpha = 0.05f)
+                        focusedTextColor = bTextColor,
+                        unfocusedTextColor = bTextColor,
+                        focusedContainerColor = bContainerColor,
+                        unfocusedContainerColor = bContainerColor
                     ),
                     modifier = Modifier.weight(1f)
                 )
@@ -804,11 +816,16 @@ fun QueueBottomSheet(
 ) {
     val queueList by viewModel.queue.collectAsStateWithLifecycle()
     val activeIndex by viewModel.currentQueueIndex.collectAsStateWithLifecycle()
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val isDark = settings.isDarkMode
+    val bTextColor = if (isDark) Color.White else Color(0xFF121212)
+    val bMutedColor = if (isDark) Color.White.copy(alpha = 0.4f) else Color(0xFF121212).copy(alpha = 0.4f)
+    val bCardBg = if (isDark) Color.White.copy(alpha = 0.03f) else Color.Black.copy(alpha = 0.05f)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFF1E1E1E),
-        contentColor = Color.White
+        containerColor = if (isDark) Color(0xFF1E1E1E) else Color.White,
+        contentColor = bTextColor
     ) {
         Column(
             modifier = Modifier
@@ -825,7 +842,7 @@ fun QueueBottomSheet(
                     text = "Play Queue (${queueList.size} songs)",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = bTextColor
                 )
                 TextButton(onClick = { viewModel.clearQueue(); onDismiss() }) {
                     Text("Clear All", color = Color.Red, fontWeight = FontWeight.Bold)
@@ -835,7 +852,7 @@ fun QueueBottomSheet(
             Spacer(modifier = Modifier.height(16.dp))
 
             if (queueList.isEmpty()) {
-                Text("Queue is empty.", color = Color.White.copy(alpha = 0.4f), modifier = Modifier.padding(vertical = 32.dp))
+                Text("Queue is empty.", color = bMutedColor, modifier = Modifier.padding(vertical = 32.dp))
             } else {
                 LazyColumn(
                     modifier = Modifier
@@ -849,7 +866,7 @@ fun QueueBottomSheet(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(if (isCurrent) accentColor.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.03f))
+                                .background(if (isCurrent) accentColor.copy(alpha = 0.15f) else bCardBg)
                                 .padding(10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
@@ -858,16 +875,16 @@ fun QueueBottomSheet(
                                 Icon(
                                     imageVector = if (isCurrent) Icons.Default.PlayArrow else Icons.Default.MusicNote,
                                     contentDescription = null,
-                                    tint = if (isCurrent) accentColor else Color.White.copy(alpha = 0.4f)
+                                    tint = if (isCurrent) accentColor else bMutedColor
                                 )
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column {
-                                    Text(song.title, fontWeight = FontWeight.Bold, color = if (isCurrent) accentColor else Color.White, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Text(song.artist, color = Color.White.copy(alpha = 0.4f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(song.title, fontWeight = FontWeight.Bold, color = if (isCurrent) accentColor else bTextColor, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(song.artist, color = bMutedColor, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                             }
                             IconButton(onClick = { viewModel.removeFromQueue(song.id) }) {
-                                Icon(Icons.Default.RemoveCircleOutline, contentDescription = "Remove", tint = Color.White.copy(alpha = 0.4f), modifier = Modifier.size(20.dp))
+                                Icon(Icons.Default.RemoveCircleOutline, contentDescription = "Remove", tint = bMutedColor, modifier = Modifier.size(20.dp))
                             }
                         }
                     }
