@@ -5,7 +5,13 @@ import androidx.room.PrimaryKey
 import androidx.room.ForeignKey
 import androidx.room.Index
 
-@Entity(tableName = "songs")
+@Entity(
+    tableName = "songs",
+    indices = [
+        Index(value = ["path"], unique = true),
+        Index(value = ["isFavorite"])
+    ]
+)
 data class Song(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val path: String,

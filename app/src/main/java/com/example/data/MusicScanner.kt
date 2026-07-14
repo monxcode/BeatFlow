@@ -198,13 +198,6 @@ object MusicScanner {
                         val key = getSongUniqueKey(title, artist)
                         if (existingKeys.contains(key)) continue
 
-                        val existingInDb = songDao.getSongByPath(path)
-                        if (existingInDb != null && settings.ignoreDuplicates) {
-                            existingPaths.add(pathLower)
-                            existingKeys.add(key)
-                            continue
-                        }
-
                         val albumId = cursor.getLong(albumIdCol)
                         val artworkUri = if (albumId != -1L) {
                             "content://media/external/audio/albumart/$albumId"
@@ -274,12 +267,6 @@ object MusicScanner {
                     val path = file.absolutePath
                     val pathLower = path.lowercase().trim()
                     if (existingPaths.contains(pathLower)) continue
-
-                    val existingInDb = songDao.getSongByPath(path)
-                    if (existingInDb != null && settings.ignoreDuplicates) {
-                        existingPaths.add(pathLower)
-                        continue
-                    }
 
                     val sizeBytes = file.length()
                     if (settings.ignoreSmallerThan100KB && sizeBytes < 100000) continue

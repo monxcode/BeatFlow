@@ -27,6 +27,7 @@ object PlaybackManager {
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var positionTrackerJob: Job? = null
     private var sleepTimerJob: Job? = null
+    private var bufferedListeningTimeMs = 0L
 
     // Exposed States
     private val _currentSong = MutableStateFlow<Song?>(null)
@@ -119,8 +120,11 @@ object PlaybackManager {
                 exoPlayer?.let { player ->
                     _currentPosition.value = player.currentPosition
                     if (player.isPlaying) {
-                        // Increment listening stats in Room (1 second)
-                        repository?.incrementListeningTime(1000L)
+                        // Buffer listening time in memory
+                        bufferedListeningTimeMs += 1000L
+                        if (bufferedListeningTimeMs >= 10000L) {
+                            flushListeningTime()
+                        }
                     }
                 }
                 delay(1000)
@@ -131,10 +135,24 @@ object PlaybackManager {
     private fun stopTrackingPosition() {
         positionTrackerJob?.cancel()
         positionTrackerJob = null
+        flushListeningTime()
+    }
+
+    private fun flushListeningTime() {
+        val timeToSave = bufferedListeningTimeMs
+        if (timeToSave > 0) {
+            bufferedListeningTimeMs = 0L
+            scope.launch {
+                withContext(Dispatchers.IO) {
+                    repository?.incrementListeningTime(timeToSave)
+                }
+            }
+        }
     }
 
     // Playback control interfaces
     fun playSong(context: Context, song: Song, newQueue: List<Song> = listOf(song)) {
+        flushListeningTime()
         val player = getExoPlayer(context)
         
         _queue.value = newQueue

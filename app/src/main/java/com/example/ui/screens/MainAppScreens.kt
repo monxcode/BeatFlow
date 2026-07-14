@@ -161,6 +161,7 @@ fun HomeScreenContent(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val filteredSongs by viewModel.filteredSongs.collectAsStateWithLifecycle()
+    val statsList by viewModel.listeningStats.collectAsStateWithLifecycle()
 
     var currentSortOrder by remember { mutableStateOf(SongSortOrder.NEW_ADD) }
 
@@ -507,11 +508,13 @@ fun HomeScreenContent(
                 }
             } else {
                 items(filteredSongs, key = { it.id }) { song ->
+                    val onPlay = remember(song, filteredSongs) { { viewModel.playSong(song, filteredSongs) } }
+                    val onFavoriteToggle = remember(song.id, song.isFavorite) { { viewModel.toggleFavorite(song.id, !song.isFavorite) } }
                     SongListItem(
                         song = song,
                         settings = settings,
-                        onPlay = { viewModel.playSong(song, filteredSongs) },
-                        onFavoriteToggle = { viewModel.toggleFavorite(song.id, !song.isFavorite) },
+                        onPlay = onPlay,
+                        onFavoriteToggle = onFavoriteToggle,
                         viewModel = viewModel
                     )
                 }
@@ -519,7 +522,6 @@ fun HomeScreenContent(
         } else {
             // Quick Stats Card (Professional Polish Style)
             item {
-                val statsList by viewModel.listeningStats.collectAsStateWithLifecycle()
                 val totalListenTimeMs = remember(statsList) { statsList.sumOf { it.listeningTimeMs } }
                 val totalListenTimeSec = totalListenTimeMs / 1000
                 val formatListenTime = remember(totalListenTimeSec) {
@@ -626,10 +628,11 @@ fun HomeScreenContent(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             items(latest.take(5), key = { it.id }) { song ->
+                                val onPlay = remember(song, latest) { { viewModel.playSong(song, latest) } }
                                 LatestTrackCard(
                                     song = song,
                                     settings = settings,
-                                    onPlay = { viewModel.playSong(song, latest) }
+                                    onPlay = onPlay
                                 )
                             }
                         }
@@ -651,10 +654,11 @@ fun HomeScreenContent(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             items(favorites, key = { it.id }) { song ->
+                                val onPlay = remember(song, favorites) { { viewModel.playSong(song, favorites) } }
                                 LatestTrackCard(
                                     song = song,
                                     settings = settings,
-                                    onPlay = { viewModel.playSong(song, favorites) }
+                                    onPlay = onPlay
                                 )
                             }
                         }
@@ -767,11 +771,13 @@ fun HomeScreenContent(
                     }
                 } else {
                     items(sortedSongs, key = { it.id }) { song ->
+                        val onPlay = remember(song, sortedSongs) { { viewModel.playSong(song, sortedSongs) } }
+                        val onFavoriteToggle = remember(song.id, song.isFavorite) { { viewModel.toggleFavorite(song.id, !song.isFavorite) } }
                         SongListItem(
                             song = song,
                             settings = settings,
-                            onPlay = { viewModel.playSong(song, sortedSongs) },
-                            onFavoriteToggle = { viewModel.toggleFavorite(song.id, !song.isFavorite) },
+                            onPlay = onPlay,
+                            onFavoriteToggle = onFavoriteToggle,
                             viewModel = viewModel
                         )
                     }
@@ -839,11 +845,13 @@ fun HomeScreenContent(
                     }
 
                     items(albumSongs, key = { it.id }) { song ->
+                        val onPlay = remember(song, albumSongs) { { viewModel.playSong(song, albumSongs) } }
+                        val onFavoriteToggle = remember(song.id, song.isFavorite) { { viewModel.toggleFavorite(song.id, !song.isFavorite) } }
                         SongListItem(
                             song = song,
                             settings = settings,
-                            onPlay = { viewModel.playSong(song, albumSongs) },
-                            onFavoriteToggle = { viewModel.toggleFavorite(song.id, !song.isFavorite) },
+                            onPlay = onPlay,
+                            onFavoriteToggle = onFavoriteToggle,
                             viewModel = viewModel
                         )
                     }
@@ -909,11 +917,13 @@ fun HomeScreenContent(
                     }
 
                     items(artistSongs, key = { it.id }) { song ->
+                        val onPlay = remember(song, artistSongs) { { viewModel.playSong(song, artistSongs) } }
+                        val onFavoriteToggle = remember(song.id, song.isFavorite) { { viewModel.toggleFavorite(song.id, !song.isFavorite) } }
                         SongListItem(
                             song = song,
                             settings = settings,
-                            onPlay = { viewModel.playSong(song, artistSongs) },
-                            onFavoriteToggle = { viewModel.toggleFavorite(song.id, !song.isFavorite) },
+                            onPlay = onPlay,
+                            onFavoriteToggle = onFavoriteToggle,
                             viewModel = viewModel
                         )
                     }
@@ -991,11 +1001,13 @@ fun HomeScreenContent(
                         }
                     } else {
                         items(playlistSongs, key = { it.id }) { song ->
+                            val onPlay = remember(song, playlistSongs) { { viewModel.playSong(song, playlistSongs) } }
+                            val onFavoriteToggle = remember(song.id, song.isFavorite) { { viewModel.toggleFavorite(song.id, !song.isFavorite) } }
                             SongListItem(
                                 song = song,
                                 settings = settings,
-                                onPlay = { viewModel.playSong(song, playlistSongs) },
-                                onFavoriteToggle = { viewModel.toggleFavorite(song.id, !song.isFavorite) },
+                                onPlay = onPlay,
+                                onFavoriteToggle = onFavoriteToggle,
                                 viewModel = viewModel
                             )
                         }
@@ -1047,11 +1059,13 @@ fun FavoritesScreenContent(viewModel: MainViewModel) {
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(favorites, key = { it.id }) { song ->
+                    val onPlay = remember(song, favorites) { { viewModel.playSong(song, favorites) } }
+                    val onFavoriteToggle = remember(song.id, song.isFavorite) { { viewModel.toggleFavorite(song.id, !song.isFavorite) } }
                     SongListItem(
                         song = song,
                         settings = settings,
-                        onPlay = { viewModel.playSong(song, favorites) },
-                        onFavoriteToggle = { viewModel.toggleFavorite(song.id, !song.isFavorite) },
+                        onPlay = onPlay,
+                        onFavoriteToggle = onFavoriteToggle,
                         viewModel = viewModel
                     )
                 }
@@ -1158,10 +1172,11 @@ fun PlaylistsScreenContent(viewModel: MainViewModel) {
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(playlists, key = { it.id }) { playlist ->
+                        val onDelete = remember(playlist) { { viewModel.deletePlaylist(playlist) } }
                         PlaylistListItem(
                             playlist = playlist,
                             settings = settings,
-                            onDelete = { viewModel.deletePlaylist(playlist) }
+                            onDelete = onDelete
                         )
                     }
                 }
@@ -1184,11 +1199,12 @@ fun PlaylistsScreenContent(viewModel: MainViewModel) {
                 ) {
                     items(folders.keys.toList(), key = { it }) { folderName ->
                         val folderSongs = folders[folderName] ?: emptyList()
+                        val onPlayFolder = remember(folderName, folderSongs) { { viewModel.playQueue(folderSongs, 0) } }
                         FolderListItem(
                             name = folderName,
                             songsCount = folderSongs.size,
                             settings = settings,
-                            onPlayFolder = { viewModel.playQueue(folderSongs, 0) }
+                            onPlayFolder = onPlayFolder
                         )
                     }
                 }
@@ -2626,12 +2642,22 @@ fun LatestTrackCard(
                     .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(12.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.MusicNote,
-                    contentDescription = null,
-                    tint = themeText.copy(alpha = 0.8f),
-                    modifier = Modifier.size(36.dp)
-                )
+                if (!song.artworkUri.isNullOrEmpty()) {
+                    AsyncImage(
+                        model = song.artworkUri,
+                        contentDescription = "Album Art",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        error = androidx.compose.ui.graphics.vector.rememberVectorPainter(Icons.Default.MusicNote)
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.MusicNote,
+                        contentDescription = null,
+                        tint = themeText.copy(alpha = 0.8f),
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
             }
             Spacer(modifier = Modifier.height(10.dp))
             Text(
@@ -2655,6 +2681,177 @@ fun LatestTrackCard(
 }
 
 @Composable
+fun RenameDialog(
+    song: Song,
+    settings: BeatFlowSettings,
+    viewModel: MainViewModel,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var tempTitle by remember { mutableStateOf(song.title) }
+    var tempArtist by remember { mutableStateOf(song.artist) }
+    val isDark = LocalIsDarkMode.current
+    val itemText = if (isDark) Color.White else Color(0xFF121212)
+    val itemTextMuted = if (isDark) Color.White.copy(alpha = 0.6f) else Color(0xFF121212).copy(alpha = 0.6f)
+    val itemDialogBg = if (isDark) Color(0xFF1E1E1E) else Color(0xFFFFFFFF)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Rename Song", color = itemText, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = tempTitle,
+                    onValueChange = { tempTitle = it },
+                    label = { Text("Song Title") },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = itemText,
+                        unfocusedTextColor = itemText,
+                        focusedBorderColor = Accents[settings.accentColorIndex],
+                        unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
+                    ),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = tempArtist,
+                    onValueChange = { tempArtist = it },
+                    label = { Text("Artist") },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = itemText,
+                        unfocusedTextColor = itemText,
+                        focusedBorderColor = Accents[settings.accentColorIndex],
+                        unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
+                    ),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (tempTitle.isNotBlank() && tempArtist.isNotBlank()) {
+                        viewModel.renameSong(song, tempTitle.trim(), tempArtist.trim())
+                        android.widget.Toast.makeText(context, "Song renamed successfully", android.widget.Toast.LENGTH_SHORT).show()
+                        onDismiss()
+                    }
+                }
+            ) {
+                Text("Save", color = Accents[settings.accentColorIndex], fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = itemTextMuted)
+            }
+        },
+        containerColor = itemDialogBg
+    )
+}
+
+@Composable
+fun DeleteDialog(
+    song: Song,
+    viewModel: MainViewModel,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val isDark = LocalIsDarkMode.current
+    val itemText = if (isDark) Color.White else Color(0xFF121212)
+    val itemTextMuted = if (isDark) Color.White.copy(alpha = 0.6f) else Color(0xFF121212).copy(alpha = 0.6f)
+    val itemDialogBg = if (isDark) Color(0xFF1E1E1E) else Color(0xFFFFFFFF)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Remove from Library", color = itemText, fontWeight = FontWeight.Bold) },
+        text = { Text("Are you sure you want to remove '${song.title}' from your library? The database entry will be deleted, but the physical file won't be deleted.", color = itemText.copy(alpha = 0.7f)) },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    viewModel.deleteSong(song)
+                    android.widget.Toast.makeText(context, "'${song.title}' removed", android.widget.Toast.LENGTH_SHORT).show()
+                    onDismiss()
+                }
+            ) {
+                Text("Remove", color = Color.Red, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = itemTextMuted)
+            }
+        },
+        containerColor = itemDialogBg
+    )
+}
+
+@Composable
+fun InfoDialog(
+    song: Song,
+    settings: BeatFlowSettings,
+    onDismiss: () -> Unit
+) {
+    val formattedDuration = remember(song.duration) {
+        val totalSeconds = song.duration / 1000
+        val minutes = totalSeconds / 60
+        val seconds = totalSeconds % 60
+        String.format("%02d:%02d", minutes, seconds)
+    }
+    val fileSize = remember(song.path) {
+        val file = java.io.File(song.path)
+        if (file.exists()) {
+            val bytes = file.length()
+            val kb = bytes / 1024.0
+            val mb = kb / 1024.0
+            if (mb >= 1.0) {
+                String.format("%.2f MB", mb)
+            } else {
+                String.format("%.2f KB", kb)
+            }
+        } else {
+            "Unknown"
+        }
+    }
+    val isDark = LocalIsDarkMode.current
+    val itemText = if (isDark) Color.White else Color(0xFF121212)
+    val itemTextMuted = if (isDark) Color.White.copy(alpha = 0.6f) else Color(0xFF121212).copy(alpha = 0.6f)
+    val itemTextFaint = if (isDark) Color.White.copy(alpha = 0.4f) else Color(0xFF121212).copy(alpha = 0.4f)
+    val itemDialogBg = if (isDark) Color(0xFF1E1E1E) else Color(0xFFFFFFFF)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Song Information", color = itemText, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(
+                    "Title" to song.title,
+                    "Artist" to song.artist,
+                    "Album" to song.album,
+                    "Duration" to formattedDuration,
+                    "File Path" to song.path,
+                    "File Size" to fileSize
+                ).forEach { (label, value) ->
+                    Column {
+                        Text(text = label, color = itemTextFaint, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text(text = value, color = itemText, fontSize = 13.sp)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(containerColor = Accents[settings.accentColorIndex])
+            ) {
+                Text("OK", color = itemText, fontWeight = FontWeight.Bold)
+            }
+        },
+        containerColor = itemDialogBg
+    )
+}
+
+@Composable
 fun SongListItem(
     song: Song,
     settings: BeatFlowSettings,
@@ -2669,230 +2866,46 @@ fun SongListItem(
     var showPlaylistDialog by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
-    val playlists by viewModel.playlists.collectAsStateWithLifecycle(initialValue = emptyList())
+    
+    // Resolve dynamic colors once per item to completely eliminate lookups during scroll
+    val isDark = LocalIsDarkMode.current
+    val itemText = remember(isDark) { if (isDark) Color.White else Color(0xFF121212) }
+    val itemTextMuted = remember(isDark) { if (isDark) Color.White.copy(alpha = 0.6f) else Color(0xFF121212).copy(alpha = 0.6f) }
+    val itemCardBg = remember(isDark) { if (isDark) Color.White.copy(alpha = 0.05f) else Color.Black.copy(alpha = 0.05f) }
+    val itemCardBorder = remember(isDark) { if (isDark) Color.White.copy(alpha = 0.1f) else Color(0xFF121212).copy(alpha = 0.1f) }
+    val itemDialogBg = remember(isDark) { if (isDark) Color(0xFF1E1E1E) else Color(0xFFFFFFFF) }
 
     if (showRenameDialog) {
-        var tempTitle by remember { mutableStateOf(song.title) }
-        var tempArtist by remember { mutableStateOf(song.artist) }
-        AlertDialog(
-            onDismissRequest = { showRenameDialog = false },
-            title = { Text("Rename Song", color = themeText, fontWeight = FontWeight.Bold) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(
-                        value = tempTitle,
-                        onValueChange = { tempTitle = it },
-                        label = { Text("Song Title") },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = themeText,
-                            unfocusedTextColor = themeText,
-                            focusedBorderColor = Accents[settings.accentColorIndex],
-                            unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
-                        ),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = tempArtist,
-                        onValueChange = { tempArtist = it },
-                        label = { Text("Artist") },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = themeText,
-                            unfocusedTextColor = themeText,
-                            focusedBorderColor = Accents[settings.accentColorIndex],
-                            unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
-                        ),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        if (tempTitle.isNotBlank() && tempArtist.isNotBlank()) {
-                            viewModel.renameSong(song, tempTitle.trim(), tempArtist.trim())
-                            android.widget.Toast.makeText(context, "Song renamed successfully", android.widget.Toast.LENGTH_SHORT).show()
-                            showRenameDialog = false
-                        }
-                    }
-                ) {
-                    Text("Save", color = Accents[settings.accentColorIndex], fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showRenameDialog = false }) {
-                    Text("Cancel", color = themeTextMuted)
-                }
-            },
-            containerColor = themeDialogBg
+        RenameDialog(
+            song = song,
+            settings = settings,
+            viewModel = viewModel,
+            onDismiss = { showRenameDialog = false }
         )
     }
 
     if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Remove from Library", color = themeText, fontWeight = FontWeight.Bold) },
-            text = { Text("Are you sure you want to remove '${song.title}' from your library? The database entry will be deleted, but the physical file won't be deleted.", color = themeText.copy(alpha = 0.7f)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.deleteSong(song)
-                        android.widget.Toast.makeText(context, "'${song.title}' removed", android.widget.Toast.LENGTH_SHORT).show()
-                        showDeleteDialog = false
-                    }
-                ) {
-                    Text("Remove", color = Color.Red, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel", color = themeTextMuted)
-                }
-            },
-            containerColor = themeDialogBg
+        DeleteDialog(
+            song = song,
+            viewModel = viewModel,
+            onDismiss = { showDeleteDialog = false }
         )
     }
 
     if (showInfoDialog) {
-        val formattedDuration = remember(song.duration) {
-            val totalSeconds = song.duration / 1000
-            val minutes = totalSeconds / 60
-            val seconds = totalSeconds % 60
-            String.format("%02d:%02d", minutes, seconds)
-        }
-        val fileSize = remember(song.path) {
-            val file = java.io.File(song.path)
-            if (file.exists()) {
-                val bytes = file.length()
-                val kb = bytes / 1024.0
-                val mb = kb / 1024.0
-                if (mb >= 1.0) {
-                    String.format("%.2f MB", mb)
-                } else {
-                    String.format("%.2f KB", kb)
-                }
-            } else {
-                "Unknown"
-            }
-        }
-        AlertDialog(
-            onDismissRequest = { showInfoDialog = false },
-            title = { Text("Song Information", color = themeText, fontWeight = FontWeight.Bold) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(
-                        "Title" to song.title,
-                        "Artist" to song.artist,
-                        "Album" to song.album,
-                        "Duration" to formattedDuration,
-                        "File Path" to song.path,
-                        "File Size" to fileSize
-                    ).forEach { (label, value) ->
-                        Column {
-                            Text(text = label, color = themeTextFaint, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            Text(text = value, color = themeText, fontSize = 13.sp)
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = { showInfoDialog = false },
-                    colors = ButtonDefaults.buttonColors(containerColor = Accents[settings.accentColorIndex])
-                ) {
-                    Text("OK", color = themeText, fontWeight = FontWeight.Bold)
-                }
-            },
-            containerColor = themeDialogBg
+        InfoDialog(
+            song = song,
+            settings = settings,
+            onDismiss = { showInfoDialog = false }
         )
     }
 
     if (showPlaylistDialog) {
-        var newPlaylistName by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { showPlaylistDialog = false },
-            title = { Text("Add to Playlist", color = themeText, fontWeight = FontWeight.Bold) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        OutlinedTextField(
-                            value = newPlaylistName,
-                            onValueChange = { newPlaylistName = it },
-                            label = { Text("New Playlist Name") },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = themeText,
-                                unfocusedTextColor = themeText,
-                                focusedBorderColor = Accents[settings.accentColorIndex],
-                                unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
-                            ),
-                            singleLine = true,
-                            modifier = Modifier.weight(1f)
-                        )
-                        IconButton(
-                            onClick = {
-                                if (newPlaylistName.isNotBlank()) {
-                                    viewModel.createPlaylistAndAddSong(newPlaylistName.trim(), song.id)
-                                    android.widget.Toast.makeText(context, "Created & added to '${newPlaylistName.trim()}'", android.widget.Toast.LENGTH_SHORT).show()
-                                    newPlaylistName = ""
-                                    showPlaylistDialog = false
-                                }
-                            },
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Accents[settings.accentColorIndex].copy(alpha = 0.1f))
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = "Create and Add", tint = Accents[settings.accentColorIndex])
-                        }
-                    }
-
-                    HorizontalDivider(color = themeCardBgSelected)
-
-                    Text("Or select existing:", color = themeTextMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-
-                    if (playlists.isEmpty()) {
-                        Text("No playlists created yet.", color = themeTextFaint, fontSize = 13.sp, modifier = Modifier.padding(vertical = 12.dp))
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 160.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            items(playlists) { playlist ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(Color.White.copy(alpha = 0.04f))
-                                        .clickable {
-                                            viewModel.addSongToPlaylist(playlist.id, song.id)
-                                            android.widget.Toast.makeText(context, "Added to '${playlist.name}'", android.widget.Toast.LENGTH_SHORT).show()
-                                            showPlaylistDialog = false
-                                        }
-                                        .padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    Icon(Icons.Default.QueueMusic, contentDescription = null, tint = Accents[settings.accentColorIndex], modifier = Modifier.size(18.dp))
-                                    Text(playlist.name, color = themeText, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { showPlaylistDialog = false }) {
-                    Text("Close", color = themeTextMuted)
-                }
-            },
-            containerColor = themeDialogBg
+        PlaylistDialog(
+            song = song,
+            settings = settings,
+            viewModel = viewModel,
+            onDismiss = { showPlaylistDialog = false }
         )
     }
 
@@ -2901,8 +2914,8 @@ fun SongListItem(
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
             .background(if (settings.isGlassEnabled) GlassDarkSurface.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.03f))
-            .border(1.dp, themeCardBorder, RoundedCornerShape(14.dp))
-            .bounceClick(onClick = onPlay)
+            .border(1.dp, itemCardBorder, RoundedCornerShape(14.dp))
+            .clickable(onClick = onPlay)
             .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -2910,16 +2923,26 @@ fun SongListItem(
             modifier = Modifier
                 .size(48.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(themeCardBg)
+                .background(itemCardBg)
                 .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(10.dp)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = Icons.Default.MusicNote,
-                contentDescription = null,
-                tint = Accents[settings.accentColorIndex],
-                modifier = Modifier.size(20.dp)
-            )
+            if (!song.artworkUri.isNullOrEmpty()) {
+                AsyncImage(
+                    model = song.artworkUri,
+                    contentDescription = "Album Art",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                    error = androidx.compose.ui.graphics.vector.rememberVectorPainter(Icons.Default.MusicNote)
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.MusicNote,
+                    contentDescription = null,
+                    tint = Accents[settings.accentColorIndex],
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
 
         Spacer(modifier = Modifier.width(16.dp))
@@ -2928,14 +2951,14 @@ fun SongListItem(
             Text(
                 text = song.title,
                 fontWeight = FontWeight.SemiBold,
-                color = themeText,
+                color = itemText,
                 fontSize = 14.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = song.artist,
-                color = themeTextMuted,
+                color = itemTextMuted,
                 fontSize = 12.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -2957,7 +2980,7 @@ fun SongListItem(
                 Icon(
                     imageVector = Icons.Default.MoreVert,
                     contentDescription = "More Options",
-                    tint = themeTextMuted,
+                    tint = itemTextMuted,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -2965,10 +2988,10 @@ fun SongListItem(
             DropdownMenu(
                 expanded = expandedMenu,
                 onDismissRequest = { expandedMenu = false },
-                modifier = Modifier.background(themeDialogBg)
+                modifier = Modifier.background(itemDialogBg)
             ) {
                 DropdownMenuItem(
-                    text = { Text("Play Next", color = themeText, fontSize = 13.sp) },
+                    text = { Text("Play Next", color = itemText, fontSize = 13.sp) },
                     onClick = {
                         viewModel.playNext(song)
                         android.widget.Toast.makeText(context, "Playing next: '${song.title}'", android.widget.Toast.LENGTH_SHORT).show()
@@ -2985,7 +3008,7 @@ fun SongListItem(
                 )
 
                 DropdownMenuItem(
-                    text = { Text("Add to Playlist", color = themeText, fontSize = 13.sp) },
+                    text = { Text("Add to Playlist", color = itemText, fontSize = 13.sp) },
                     onClick = {
                         showPlaylistDialog = true
                         expandedMenu = false
@@ -3001,7 +3024,7 @@ fun SongListItem(
                 )
 
                 DropdownMenuItem(
-                    text = { Text("Song Info", color = themeText, fontSize = 13.sp) },
+                    text = { Text("Song Info", color = itemText, fontSize = 13.sp) },
                     onClick = {
                         showInfoDialog = true
                         expandedMenu = false
@@ -3017,7 +3040,7 @@ fun SongListItem(
                 )
 
                 DropdownMenuItem(
-                    text = { Text("Rename", color = themeText, fontSize = 13.sp) },
+                    text = { Text("Rename", color = itemText, fontSize = 13.sp) },
                     onClick = {
                         showRenameDialog = true
                         expandedMenu = false
@@ -3033,7 +3056,7 @@ fun SongListItem(
                 )
 
                 DropdownMenuItem(
-                    text = { Text("Share", color = themeText, fontSize = 13.sp) },
+                    text = { Text("Share", color = itemText, fontSize = 13.sp) },
                     onClick = {
                         try {
                             val intent = Intent(Intent.ACTION_SEND).apply {
@@ -3087,6 +3110,103 @@ fun SongListItem(
             }
         }
     }
+}
+
+@Composable
+fun PlaylistDialog(
+    song: Song,
+    settings: BeatFlowSettings,
+    viewModel: MainViewModel,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val playlists by viewModel.playlists.collectAsStateWithLifecycle(initialValue = emptyList())
+    var newPlaylistName by remember { mutableStateOf("") }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add to Playlist", color = themeText, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = newPlaylistName,
+                        onValueChange = { newPlaylistName = it },
+                        label = { Text("New Playlist Name") },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = themeText,
+                            unfocusedTextColor = themeText,
+                            focusedBorderColor = Accents[settings.accentColorIndex],
+                            unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
+                        ),
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(
+                        onClick = {
+                            if (newPlaylistName.isNotBlank()) {
+                                viewModel.createPlaylistAndAddSong(newPlaylistName.trim(), song.id)
+                                android.widget.Toast.makeText(context, "Created & added to '${newPlaylistName.trim()}'", android.widget.Toast.LENGTH_SHORT).show()
+                                newPlaylistName = ""
+                                onDismiss()
+                            }
+                        },
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Accents[settings.accentColorIndex].copy(alpha = 0.1f))
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Create and Add", tint = Accents[settings.accentColorIndex])
+                    }
+                }
+
+                HorizontalDivider(color = themeCardBgSelected)
+
+                Text("Or select existing:", color = themeTextMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+
+                if (playlists.isEmpty()) {
+                    Text("No playlists created yet.", color = themeTextFaint, fontSize = 13.sp, modifier = Modifier.padding(vertical = 12.dp))
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 160.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(playlists, key = { it.id }) { playlist ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color.White.copy(alpha = 0.04f))
+                                    .clickable {
+                                        viewModel.addSongToPlaylist(playlist.id, song.id)
+                                        android.widget.Toast.makeText(context, "Added to '${playlist.name}'", android.widget.Toast.LENGTH_SHORT).show()
+                                        onDismiss()
+                                    }
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Icon(Icons.Default.QueueMusic, contentDescription = null, tint = Accents[settings.accentColorIndex], modifier = Modifier.size(18.dp))
+                                Text(playlist.name, color = themeText, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", color = themeTextMuted)
+            }
+        },
+        containerColor = themeDialogBg
+    )
 }
 
 @Composable
@@ -3226,13 +3346,19 @@ fun AlbumListItem(
     onClick: () -> Unit
 ) {
     val gradientIdx = (album.hashCode() % ProfessionalPolishGradients.size).let { if (it < 0) -it else it }
+    val isDark = LocalIsDarkMode.current
+    val itemText = remember(isDark) { if (isDark) Color.White else Color(0xFF121212) }
+    val itemTextMuted = remember(isDark) { if (isDark) Color.White.copy(alpha = 0.6f) else Color(0xFF121212).copy(alpha = 0.6f) }
+    val itemTextFaint = remember(isDark) { if (isDark) Color.White.copy(alpha = 0.4f) else Color(0xFF121212).copy(alpha = 0.4f) }
+    val itemCardBorder = remember(isDark) { if (isDark) Color.White.copy(alpha = 0.1f) else Color(0xFF121212).copy(alpha = 0.1f) }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(if (settings.isGlassEnabled) GlassDarkSurface.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.03f))
-            .border(1.dp, themeCardBorder, RoundedCornerShape(16.dp))
-            .bounceClick(onClick = onClick)
+            .border(1.dp, itemCardBorder, RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -3248,7 +3374,7 @@ fun AlbumListItem(
             Icon(
                 imageVector = Icons.Default.Album,
                 contentDescription = null,
-                tint = themeText.copy(alpha = 0.8f),
+                tint = itemText.copy(alpha = 0.8f),
                 modifier = Modifier.size(24.dp)
             )
         }
@@ -3260,14 +3386,14 @@ fun AlbumListItem(
             Text(
                 text = album,
                 fontWeight = FontWeight.Bold,
-                color = themeText,
+                color = itemText,
                 fontSize = 15.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = "$artist • $trackCount ${if (trackCount == 1) "Song" else "Songs"}",
-                color = themeTextMuted,
+                color = itemTextMuted,
                 fontSize = 12.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -3278,7 +3404,7 @@ fun AlbumListItem(
         Icon(
             imageVector = Icons.Default.ArrowForward,
             contentDescription = "Open Album",
-            tint = themeTextFaint,
+            tint = itemTextFaint,
             modifier = Modifier.size(18.dp)
         )
     }
@@ -3292,13 +3418,19 @@ fun ArtistListItem(
     onClick: () -> Unit
 ) {
     val gradientIdx = (artist.hashCode() % ProfessionalPolishGradients.size).let { if (it < 0) -it else it }
+    val isDark = LocalIsDarkMode.current
+    val itemText = remember(isDark) { if (isDark) Color.White else Color(0xFF121212) }
+    val itemTextMuted = remember(isDark) { if (isDark) Color.White.copy(alpha = 0.6f) else Color(0xFF121212).copy(alpha = 0.6f) }
+    val itemTextFaint = remember(isDark) { if (isDark) Color.White.copy(alpha = 0.4f) else Color(0xFF121212).copy(alpha = 0.4f) }
+    val itemCardBorder = remember(isDark) { if (isDark) Color.White.copy(alpha = 0.1f) else Color(0xFF121212).copy(alpha = 0.1f) }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(if (settings.isGlassEnabled) GlassDarkSurface.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.03f))
-            .border(1.dp, themeCardBorder, RoundedCornerShape(16.dp))
-            .bounceClick(onClick = onClick)
+            .border(1.dp, itemCardBorder, RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -3314,7 +3446,7 @@ fun ArtistListItem(
             Icon(
                 imageVector = Icons.Default.Person,
                 contentDescription = null,
-                tint = themeText.copy(alpha = 0.8f),
+                tint = itemText.copy(alpha = 0.8f),
                 modifier = Modifier.size(24.dp)
             )
         }
@@ -3326,14 +3458,14 @@ fun ArtistListItem(
             Text(
                 text = artist,
                 fontWeight = FontWeight.Bold,
-                color = themeText,
+                color = itemText,
                 fontSize = 15.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = "$trackCount ${if (trackCount == 1) "Song" else "Songs"}",
-                color = themeTextMuted,
+                color = itemTextMuted,
                 fontSize = 12.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -3344,7 +3476,7 @@ fun ArtistListItem(
         Icon(
             imageVector = Icons.Default.ArrowForward,
             contentDescription = "Open Artist",
-            tint = themeTextFaint,
+            tint = itemTextFaint,
             modifier = Modifier.size(18.dp)
         )
     }
@@ -3358,13 +3490,18 @@ fun PlaylistListItemHome(
     onDelete: () -> Unit
 ) {
     val gradientIdx = (playlist.name.hashCode() % ProfessionalPolishGradients.size).let { if (it < 0) -it else it }
+    val isDark = LocalIsDarkMode.current
+    val itemText = remember(isDark) { if (isDark) Color.White else Color(0xFF121212) }
+    val itemTextMuted = remember(isDark) { if (isDark) Color.White.copy(alpha = 0.6f) else Color(0xFF121212).copy(alpha = 0.6f) }
+    val itemCardBorder = remember(isDark) { if (isDark) Color.White.copy(alpha = 0.1f) else Color(0xFF121212).copy(alpha = 0.1f) }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(if (settings.isGlassEnabled) GlassDarkSurface.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.03f))
-            .border(1.dp, themeCardBorder, RoundedCornerShape(16.dp))
-            .bounceClick(onClick = onClick)
+            .border(1.dp, itemCardBorder, RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -3379,7 +3516,7 @@ fun PlaylistListItemHome(
             Icon(
                 imageVector = Icons.Default.QueueMusic,
                 contentDescription = null,
-                tint = themeText.copy(alpha = 0.8f),
+                tint = itemText.copy(alpha = 0.8f),
                 modifier = Modifier.size(24.dp)
             )
         }
@@ -3391,14 +3528,14 @@ fun PlaylistListItemHome(
             Text(
                 text = playlist.name,
                 fontWeight = FontWeight.Bold,
-                color = themeText,
+                color = itemText,
                 fontSize = 15.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = "Custom Playlist",
-                color = themeTextMuted,
+                color = itemTextMuted,
                 fontSize = 12.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
