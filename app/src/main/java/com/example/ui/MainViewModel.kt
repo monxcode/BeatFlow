@@ -94,6 +94,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     init {
         // Automatically start background position monitoring
         PlaybackManager.getExoPlayer(context)
+
+        // Force delete existing sample songs from database on startup
+        viewModelScope.launch {
+            try {
+                repository.deleteSampleSongs()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     // Smart Music Scanner Trigger

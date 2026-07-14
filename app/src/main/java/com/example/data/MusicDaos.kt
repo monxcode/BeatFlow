@@ -46,6 +46,9 @@ interface SongDao {
     @Delete
     suspend fun deleteSong(song: Song)
 
+    @Query("DELETE FROM songs WHERE title IN ('Sunset Chill', 'Cyber Pulse', 'Midnight Rain')")
+    suspend fun deleteSampleSongs()
+
     @Query("DELETE FROM songs")
     suspend fun clearAllSongs()
 }

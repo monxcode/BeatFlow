@@ -35,6 +35,10 @@ class MusicRepository(private val context: Context) {
         return MusicScanner.scanMusic(context, songDao, currentSettings)
     }
 
+    suspend fun deleteSampleSongs() {
+        songDao.deleteSampleSongs()
+    }
+
     // Song Operations
     suspend fun toggleFavorite(songId: Long, isFavorite: Boolean) {
         songDao.updateFavorite(songId, isFavorite)

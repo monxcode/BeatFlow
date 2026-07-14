@@ -22,12 +22,25 @@ object MusicScanner {
         Log.d(TAG, "Starting Smart Music Scan...")
         var scannedCount = 0
 
-        // 1. Ensure our beautiful 3 synthesized tracks are seeded in external sandbox
-        val seededFiles = try {
-            ProceduralAudioGenerator.seedMusicIfEmpty(context)
+        // 1. Delete any existing sample tracks if they exist on storage
+        try {
+            val musicDir = context.getExternalFilesDir(Environment.DIRECTORY_MUSIC) ?: context.filesDir
+            val sampleFiles = listOf("sunset_chill.wav", "cyber_pulse.wav", "midnight_rain.wav")
+            for (fileName in sampleFiles) {
+                val file = File(musicDir, fileName)
+                if (file.exists()) {
+                    file.delete()
+                }
+            }
         } catch (e: Exception) {
-            Log.e(TAG, "Seeding files failed, using empty list", e)
-            emptyList()
+            Log.e(TAG, "Failed to delete old seed files", e)
+        }
+
+        // 1.5 Delete sample songs from database to clean up UI
+        try {
+            songDao.deleteSampleSongs()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to delete sample songs from DB", e)
         }
 
         val songsToInsert = mutableListOf<Song>()
@@ -41,54 +54,6 @@ object MusicScanner {
                 if (file.name.startsWith(".") || file.parentFile?.name?.startsWith(".") == true) return false
             }
             return true
-        }
-
-        // 2. Add seeded files to database list
-        for (file in seededFiles) {
-            val path = file.absolutePath
-            if (existingPaths.contains(path)) continue
-            
-            // Query DB to see if already scanned
-            val existingInDb = songDao.getSongByPath(path)
-            if (existingInDb != null && settings.ignoreDuplicates) {
-                existingPaths.add(path)
-                continue
-            }
-
-            val durationMs = 65000L // 65 seconds
-            val sizeBytes = file.length()
-            
-            if (passesFilters(file, durationMs, sizeBytes)) {
-                val title = when (file.name) {
-                    "sunset_chill.wav" -> "Sunset Chill"
-                    "cyber_pulse.wav" -> "Cyber Pulse"
-                    "midnight_rain.wav" -> "Midnight Rain"
-                    else -> file.nameWithoutExtension.capitalize()
-                }
-                
-                val genre = when (file.name) {
-                    "sunset_chill.wav" -> "Ambient Pentatonic"
-                    "cyber_pulse.wav" -> "Synthwave"
-                    "midnight_rain.wav" -> "Atmospheric Rain"
-                    else -> "Procedural Lo-Fi"
-                }
-
-                val song = Song(
-                    path = path,
-                    title = title,
-                    artist = "Mohan Parmar",
-                    album = "BeatFlow Anthems",
-                    genre = genre,
-                    duration = durationMs,
-                    size = sizeBytes,
-                    dateAdded = file.lastModified(),
-                    folderName = file.parentFile?.name ?: "BeatFlow",
-                    artworkUri = null
-                )
-                songsToInsert.add(song)
-                existingPaths.add(path)
-                scannedCount++
-            }
         }
 
         // 2.5 Scan custom user folders forcefully from direct filesystem path
