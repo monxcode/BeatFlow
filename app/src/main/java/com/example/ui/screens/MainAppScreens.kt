@@ -25,6 +25,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.*
@@ -86,12 +94,29 @@ fun HomeScreenContent(
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
 
+    val listState = rememberLazyListState()
+    val isScrolled by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 40
+        }
+    }
+    val coroutineScope = rememberCoroutineScope()
+    val focusRequester = remember { FocusRequester() }
+    var isSearchExpandedByIcon by remember { mutableStateOf(false) }
+
     val greeting = remember {
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
         when (hour) {
             in 0..11 -> "Good Morning"
             in 12..16 -> "Good Afternoon"
             else -> "Good Evening"
+        }
+    }
+
+    // Reset header search toggle if scrolled back to the top
+    LaunchedEffect(isScrolled) {
+        if (!isScrolled) {
+            isSearchExpandedByIcon = false
         }
     }
 
@@ -102,95 +127,240 @@ fun HomeScreenContent(
     ) {
         Spacer(modifier = Modifier.height(16.dp))
         
-        // 1. FIXED TOP HEADER & PROFILE ICON (Doesn't scroll up)
+        // 1. FIXED TOP HEADER & PROFILE ICON (Adapts responsive height on scroll)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
-                Text(
-                    text = "$greeting, ${settings.userName} 👋",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color.White
-                )
-                Text(
-                    text = "Your music, secured offline.",
-                    fontSize = 12.sp,
-                    color = Color.White.copy(alpha = 0.5f),
-                    modifier = Modifier.padding(top = 2.dp)
-                )
+            val showSearchInputInHeader = isScrolled && (isSearchExpandedByIcon || searchQuery.isNotEmpty())
+
+            if (showSearchInputInHeader) {
+                // Expanded compact search input in the header row
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = {
+                            isSearchExpandedByIcon = false
+                            viewModel.updateSearchQuery("")
+                            focusManager.clearFocus()
+                        },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Collapse Search",
+                            tint = Color.White
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.width(4.dp))
+
+                    GlassCard(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(38.dp),
+                        isGlassEnabled = settings.isGlassEnabled,
+                        isDark = settings.isDarkMode,
+                        cornerRadius = 12.dp
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = "Search Icon",
+                                tint = Color.White.copy(alpha = 0.6f),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            BasicTextField(
+                                value = searchQuery,
+                                onValueChange = { viewModel.updateSearchQuery(it) },
+                                textStyle = TextStyle(color = Color.White, fontSize = 14.sp),
+                                singleLine = true,
+                                cursorBrush = SolidColor(Color.White),
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                keyboardActions = KeyboardActions(onSearch = {
+                                    keyboardController?.hide()
+                                    focusManager.clearFocus()
+                                }),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .focusRequester(focusRequester),
+                                decorationBox = { innerTextField ->
+                                    if (searchQuery.isEmpty()) {
+                                        Text(
+                                            "Search...",
+                                            color = Color.White.copy(alpha = 0.3f),
+                                            fontSize = 14.sp
+                                        )
+                                    }
+                                    innerTextField()
+                                }
+                            )
+                            if (searchQuery.isNotEmpty()) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Clear",
+                                    tint = Color.White.copy(alpha = 0.6f),
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .clickable { viewModel.updateSearchQuery("") }
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Header Titles (Responsive typography sizes)
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    if (isScrolled) {
+                        Text(
+                            text = "BeatFlow",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color.White
+                        )
+                    } else {
+                        Text(
+                            text = "$greeting, ${settings.userName} 👋",
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "Your music, secured offline.",
+                            fontSize = 12.sp,
+                            color = Color.White.copy(alpha = 0.5f),
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+                }
             }
 
-            // Profile Image Circle
-            val avatarIdx = settings.accentColorIndex.coerceIn(0, AvatarGradients.size - 1)
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(AvatarGradients[avatarIdx])
-                    .clickable(onClick = onNavigateToProfile),
-                contentAlignment = Alignment.Center
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Search Icon (when scrolled and not typing) and Profile Avatar
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = settings.userName.take(1).uppercase(),
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black,
-                    fontSize = 18.sp
-                )
+                if (isScrolled && !showSearchInputInHeader) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.08f))
+                            .clickable {
+                                isSearchExpandedByIcon = true
+                                coroutineScope.launch {
+                                    delay(100)
+                                    focusRequester.requestFocus()
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Open Search",
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                // Profile Avatar (Smaller size on scroll)
+                val avatarIdx = settings.accentColorIndex.coerceIn(0, AvatarGradients.size - 1)
+                val avatarSize = if (isScrolled) 36.dp else 48.dp
+                Box(
+                    modifier = Modifier
+                        .size(avatarSize)
+                        .clip(CircleShape)
+                        .background(AvatarGradients[avatarIdx])
+                        .clickable(onClick = onNavigateToProfile),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = settings.userName.take(1).uppercase(),
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black,
+                        fontSize = if (isScrolled) 13.sp else 18.sp
+                    )
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // 2. FIXED GLOSSY INSTANT SEARCH (Doesn't scroll up)
-        GlassCard(
-            modifier = Modifier.fillMaxWidth(),
-            isGlassEnabled = settings.isGlassEnabled,
-            isDark = settings.isDarkMode
+        // 2. FIXED GLOSSY INSTANT SEARCH (Reduced height and auto-collapses on scroll)
+        AnimatedVisibility(
+            visible = !isScrolled,
+            enter = expandVertically() + fadeIn(),
+            exit = shrinkVertically() + fadeOut()
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = "Search Icon",
-                    tint = Color.White.copy(alpha = 0.6f),
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                TextField(
-                    value = searchQuery,
-                    onValueChange = { viewModel.updateSearchQuery(it) },
-                    placeholder = { Text("Search songs, artists, albums...", color = Color.White.copy(alpha = 0.3f), fontSize = 14.sp) },
-                    singleLine = true,
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        disabledContainerColor = Color.Transparent,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
-                    ),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = {
-                        keyboardController?.hide()
-                        focusManager.clearFocus()
-                    }),
-                    modifier = Modifier.weight(1f)
-                )
-                if (searchQuery.isNotEmpty()) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Clear",
-                        tint = Color.White.copy(alpha = 0.6f),
+            Column {
+                Spacer(modifier = Modifier.height(12.dp))
+                GlassCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(42.dp),
+                    isGlassEnabled = settings.isGlassEnabled,
+                    isDark = settings.isDarkMode,
+                    cornerRadius = 14.dp
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
-                            .size(20.dp)
-                            .clickable { viewModel.updateSearchQuery("") }
-                    )
+                            .fillMaxSize()
+                            .padding(horizontal = 12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Search Icon",
+                            tint = Color.White.copy(alpha = 0.6f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        BasicTextField(
+                            value = searchQuery,
+                            onValueChange = { viewModel.updateSearchQuery(it) },
+                            textStyle = TextStyle(color = Color.White, fontSize = 14.sp),
+                            singleLine = true,
+                            cursorBrush = SolidColor(Color.White),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            keyboardActions = KeyboardActions(onSearch = {
+                                keyboardController?.hide()
+                                focusManager.clearFocus()
+                            }),
+                            modifier = Modifier.weight(1f),
+                            decorationBox = { innerTextField ->
+                                if (searchQuery.isEmpty()) {
+                                    Text(
+                                        "Search songs, artists, albums...",
+                                        color = Color.White.copy(alpha = 0.3f),
+                                        fontSize = 14.sp
+                                    )
+                                }
+                                innerTextField()
+                            }
+                        )
+                        if (searchQuery.isNotEmpty()) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Clear",
+                                tint = Color.White.copy(alpha = 0.6f),
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .clickable { viewModel.updateSearchQuery("") }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -199,6 +369,7 @@ fun HomeScreenContent(
 
         // 3. SCROLLABLE CONTENT (Songs, stats, list, etc.)
         LazyColumn(
+            state = listState,
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(bottom = 120.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
