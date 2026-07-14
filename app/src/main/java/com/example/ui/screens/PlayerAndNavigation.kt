@@ -2,6 +2,9 @@ package com.example.ui.screens
 
 import android.content.Context
 import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
+import coil.compose.SubcomposeAsyncImageContent
+import coil.compose.AsyncImagePainter
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -367,13 +370,24 @@ fun MiniPlayer(
                 contentAlignment = Alignment.Center
             ) {
                 if (!song.artworkUri.isNullOrEmpty()) {
-                    AsyncImage(
+                    SubcomposeAsyncImage(
                         model = song.artworkUri,
                         contentDescription = "Album Art",
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                        error = androidx.compose.ui.graphics.vector.rememberVectorPainter(Icons.Default.MusicNote)
-                    )
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                    ) {
+                        val state = painter.state
+                        if (state is AsyncImagePainter.State.Success) {
+                            SubcomposeAsyncImageContent()
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.MusicNote,
+                                contentDescription = null,
+                                tint = accentColor,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
                 } else {
                     Icon(
                         imageVector = Icons.Default.MusicNote,
@@ -524,13 +538,24 @@ fun FullPlayerScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     if (currentSong != null && !currentSong!!.artworkUri.isNullOrEmpty()) {
-                        AsyncImage(
+                        SubcomposeAsyncImage(
                             model = currentSong!!.artworkUri,
                             contentDescription = "Album Art",
                             modifier = Modifier.fillMaxSize(),
-                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                            error = androidx.compose.ui.graphics.vector.rememberVectorPainter(Icons.Default.MusicNote)
-                        )
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                        ) {
+                            val state = painter.state
+                            if (state is AsyncImagePainter.State.Success) {
+                                SubcomposeAsyncImageContent()
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.MusicNote,
+                                    contentDescription = null,
+                                    tint = accentColor,
+                                    modifier = Modifier.size(110.dp)
+                                )
+                            }
+                        }
                     } else {
                         Icon(
                             imageVector = Icons.Default.MusicNote,

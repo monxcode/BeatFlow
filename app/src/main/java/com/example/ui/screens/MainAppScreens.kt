@@ -25,6 +25,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.PickVisualMediaRequest
 import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
+import coil.compose.SubcomposeAsyncImageContent
+import coil.compose.AsyncImagePainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.animation.*
 import androidx.compose.animation.core.animateFloatAsState
@@ -2643,13 +2646,24 @@ fun LatestTrackCard(
                 contentAlignment = Alignment.Center
             ) {
                 if (!song.artworkUri.isNullOrEmpty()) {
-                    AsyncImage(
+                    SubcomposeAsyncImage(
                         model = song.artworkUri,
                         contentDescription = "Album Art",
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                        error = androidx.compose.ui.graphics.vector.rememberVectorPainter(Icons.Default.MusicNote)
-                    )
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                    ) {
+                        val state = painter.state
+                        if (state is AsyncImagePainter.State.Success) {
+                            SubcomposeAsyncImageContent()
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.MusicNote,
+                                contentDescription = null,
+                                tint = themeText.copy(alpha = 0.8f),
+                                modifier = Modifier.size(36.dp)
+                            )
+                        }
+                    }
                 } else {
                     Icon(
                         imageVector = Icons.Default.MusicNote,
@@ -2874,6 +2888,7 @@ fun SongListItem(
     val itemCardBg = remember(isDark) { if (isDark) Color.White.copy(alpha = 0.05f) else Color.Black.copy(alpha = 0.05f) }
     val itemCardBorder = remember(isDark) { if (isDark) Color.White.copy(alpha = 0.1f) else Color(0xFF121212).copy(alpha = 0.1f) }
     val itemDialogBg = remember(isDark) { if (isDark) Color(0xFF1E1E1E) else Color(0xFFFFFFFF) }
+    val gradientIdx = remember(song.id) { (song.id.toInt() % ProfessionalPolishGradients.size).let { if (it < 0) -it else it } }
 
     if (showRenameDialog) {
         RenameDialog(
@@ -2923,23 +2938,34 @@ fun SongListItem(
             modifier = Modifier
                 .size(48.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(itemCardBg)
+                .background(ProfessionalPolishGradients[gradientIdx])
                 .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(10.dp)),
             contentAlignment = Alignment.Center
         ) {
             if (!song.artworkUri.isNullOrEmpty()) {
-                AsyncImage(
+                SubcomposeAsyncImage(
                     model = song.artworkUri,
                     contentDescription = "Album Art",
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                    error = androidx.compose.ui.graphics.vector.rememberVectorPainter(Icons.Default.MusicNote)
-                )
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                ) {
+                    val state = painter.state
+                    if (state is AsyncImagePainter.State.Success) {
+                        SubcomposeAsyncImageContent()
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.MusicNote,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.8f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
             } else {
                 Icon(
                     imageVector = Icons.Default.MusicNote,
                     contentDescription = null,
-                    tint = Accents[settings.accentColorIndex],
+                    tint = Color.White.copy(alpha = 0.8f),
                     modifier = Modifier.size(20.dp)
                 )
             }
