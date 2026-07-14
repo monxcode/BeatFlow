@@ -90,6 +90,42 @@ fun HomeScreenContent(
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val filteredSongs by viewModel.filteredSongs.collectAsStateWithLifecycle()
 
+    var selectedCategory by remember { mutableStateOf("All") }
+    var selectedAlbum by remember { mutableStateOf<String?>(null) }
+    var selectedArtist by remember { mutableStateOf<String?>(null) }
+    var selectedPlaylist by remember { mutableStateOf<Playlist?>(null) }
+
+    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+
+    val albums = remember(songs) {
+        songs.map { it.album }.distinct().filter { it.isNotBlank() }
+    }
+
+    val artists = remember(songs) {
+        songs.map { it.artist }.distinct().filter { it.isNotBlank() }
+    }
+
+    val albumSongs = remember(songs, selectedAlbum) {
+        if (selectedAlbum != null) {
+            songs.filter { it.album == selectedAlbum }
+        } else {
+            emptyList()
+        }
+    }
+
+    val artistSongs = remember(songs, selectedArtist) {
+        if (selectedArtist != null) {
+            songs.filter { it.artist == selectedArtist }
+        } else {
+            emptyList()
+        }
+    }
+
+    val playlistSongsFlow = remember(selectedPlaylist) {
+        selectedPlaylist?.let { viewModel.getSongsInPlaylist(it.id) } ?: kotlinx.coroutines.flow.flowOf(emptyList())
+    }
+    val playlistSongs by playlistSongsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
+
     val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
@@ -451,43 +487,105 @@ fun HomeScreenContent(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Active Chip ("All")
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(Accents[settings.accentColorIndex])
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                    ) {
-                        Text(
-                            text = "All",
-                            color = if (settings.accentColorIndex == 0) com.example.ui.theme.DeepViolet else Color.Black,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    // Inactive Chips ("Albums", "Artists", "Playlists")
-                    listOf("Albums", "Artists", "Playlists").forEach { label ->
+                    listOf("All", "Albums", "Artists", "Playlists").forEach { cat ->
+                        val isSelected = selectedCategory == cat
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(50))
-                                .background(if (settings.isGlassEnabled) GlassDarkSurface else Color.White.copy(alpha = 0.05f))
-                                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(50))
+                                .background(
+                                    if (isSelected) Accents[settings.accentColorIndex]
+                                    else if (settings.isGlassEnabled) GlassDarkSurface else Color.White.copy(alpha = 0.05f)
+                                )
+                                .border(
+                                    1.dp,
+                                    if (isSelected) Color.Transparent else Color.White.copy(alpha = 0.08f),
+                                    RoundedCornerShape(50)
+                                )
+                                .clickable {
+                                    selectedCategory = cat
+                                    selectedAlbum = null
+                                    selectedArtist = null
+                                    selectedPlaylist = null
+                                }
                                 .padding(horizontal = 16.dp, vertical = 8.dp)
                         ) {
                             Text(
-                                text = label,
-                                color = Color.White.copy(alpha = 0.6f),
+                                text = cat,
+                                color = if (isSelected) {
+                                    if (settings.accentColorIndex == 0) com.example.ui.theme.DeepViolet else Color.Black
+                                } else Color.White.copy(alpha = 0.6f),
                                 fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                             )
                         }
                     }
                 }
             }
 
-            // 3. RECENTLY PLAYED / LATEST ADDED HORIZONTAL GRID
-            if (latest.isNotEmpty()) {
+            if (selectedCategory == "All") {
+                // 3. RECENTLY PLAYED / LATEST ADDED HORIZONTAL GRID
+                if (latest.isNotEmpty()) {
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Recently Played",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White.copy(alpha = 0.6f)
+                            )
+                            Text(
+                                text = "See All",
+                                fontSize = 12.sp,
+                                color = Accents[settings.accentColorIndex],
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            items(latest.take(5)) { song ->
+                                LatestTrackCard(
+                                    song = song,
+                                    settings = settings,
+                                    onPlay = { viewModel.playSong(song, latest) }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 4. FAVORITES QUICK GRID
+                if (favorites.isNotEmpty()) {
+                    item {
+                        Text(
+                            text = "Favorites Grid",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            items(favorites) { song ->
+                                LatestTrackCard(
+                                    song = song,
+                                    settings = settings,
+                                    onPlay = { viewModel.playSong(song, favorites) }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 5. ALL TRACKS LIST
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -495,100 +593,262 @@ fun HomeScreenContent(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Recently Played",
-                            fontSize = 14.sp,
+                            text = "All Songs (${songs.size})",
+                            fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White.copy(alpha = 0.6f)
+                            color = Color.White
                         )
+                        TextButton(onClick = { viewModel.triggerScan() }) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize), tint = Accents[settings.accentColorIndex])
+                                Spacer(Modifier.width(4.dp))
+                                Text("Rescan", color = Accents[settings.accentColorIndex], fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                if (songs.isEmpty()) {
+                    item {
+                        EmptyStatePlaceholder(
+                            title = "Your library is silent",
+                            subtitle = "Press scan to load local tracks!",
+                            icon = Icons.Default.MusicNote,
+                            actionText = "Scan local files",
+                            onAction = { viewModel.triggerScan() }
+                        )
+                    }
+                } else {
+                    items(songs) { song ->
+                        SongListItem(
+                            song = song,
+                            settings = settings,
+                            onPlay = { viewModel.playSong(song, songs) },
+                            onFavoriteToggle = { viewModel.toggleFavorite(song.id, !song.isFavorite) }
+                        )
+                    }
+                }
+            } else if (selectedCategory == "Albums") {
+                if (selectedAlbum == null) {
+                    item {
                         Text(
-                            text = "See All",
-                            fontSize = 12.sp,
-                            color = Accents[settings.accentColorIndex],
-                            fontWeight = FontWeight.Medium
+                            text = "Albums (${albums.size})",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
                         )
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        items(latest.take(5)) { song ->
-                            LatestTrackCard(
-                                song = song,
+
+                    if (albums.isEmpty()) {
+                        item {
+                            EmptyStatePlaceholder(
+                                title = "No albums found",
+                                subtitle = "Scan some music files to see their albums here.",
+                                icon = Icons.Default.Album
+                            )
+                        }
+                    } else {
+                        items(albums) { albumName ->
+                            val currentAlbumSongs = remember(songs, albumName) {
+                                songs.filter { it.album == albumName }
+                            }
+                            val primaryArtist = currentAlbumSongs.firstOrNull()?.artist ?: "Unknown Artist"
+                            AlbumListItem(
+                                album = albumName,
+                                artist = primaryArtist,
+                                trackCount = currentAlbumSongs.size,
                                 settings = settings,
-                                onPlay = { viewModel.playSong(song, latest) }
+                                onClick = { selectedAlbum = albumName }
                             )
                         }
                     }
-                }
-            }
+                } else {
+                    item {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            IconButton(onClick = { selectedAlbum = null }) {
+                                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = selectedAlbum ?: "Album Details",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "${albumSongs.size} ${if (albumSongs.size == 1) "Song" else "Songs"}",
+                                    fontSize = 12.sp,
+                                    color = Color.White.copy(alpha = 0.5f)
+                                )
+                            }
+                        }
+                    }
 
-            // 4. FAVORITES QUICK GRID
-            if (favorites.isNotEmpty()) {
-                item {
-                    Text(
-                        text = "Favorites Grid",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        items(favorites) { song ->
-                            LatestTrackCard(
-                                song = song,
+                    items(albumSongs) { song ->
+                        SongListItem(
+                            song = song,
+                            settings = settings,
+                            onPlay = { viewModel.playSong(song, albumSongs) },
+                            onFavoriteToggle = { viewModel.toggleFavorite(song.id, !song.isFavorite) }
+                        )
+                    }
+                }
+            } else if (selectedCategory == "Artists") {
+                if (selectedArtist == null) {
+                    item {
+                        Text(
+                            text = "Artists (${artists.size})",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+
+                    if (artists.isEmpty()) {
+                        item {
+                            EmptyStatePlaceholder(
+                                title = "No artists found",
+                                subtitle = "Scan some music files to see artists here.",
+                                icon = Icons.Default.Person
+                            )
+                        }
+                    } else {
+                        items(artists) { artistName ->
+                            val currentArtistSongs = remember(songs, artistName) {
+                                songs.filter { it.artist == artistName }
+                            }
+                            ArtistListItem(
+                                artist = artistName,
+                                trackCount = currentArtistSongs.size,
                                 settings = settings,
-                                onPlay = { viewModel.playSong(song, favorites) }
+                                onClick = { selectedArtist = artistName }
                             )
                         }
                     }
-                }
-            }
-
-            // 5. ALL TRACKS LIST
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "All Songs (${songs.size})",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    TextButton(onClick = { viewModel.triggerScan() }) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize), tint = Accents[settings.accentColorIndex])
-                            Spacer(Modifier.width(4.dp))
-                            Text("Rescan", color = Accents[settings.accentColorIndex], fontWeight = FontWeight.Bold)
+                } else {
+                    item {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            IconButton(onClick = { selectedArtist = null }) {
+                                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = selectedArtist ?: "Artist Details",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "${artistSongs.size} ${if (artistSongs.size == 1) "Song" else "Songs"}",
+                                    fontSize = 12.sp,
+                                    color = Color.White.copy(alpha = 0.5f)
+                                )
+                            }
                         }
                     }
-                }
-            }
 
-            if (songs.isEmpty()) {
-                item {
-                    EmptyStatePlaceholder(
-                        title = "Your library is silent",
-                        subtitle = "We seeded 3 procedural tracks. Press scan to load them!",
-                        icon = Icons.Default.MusicNote,
-                        actionText = "Scan local files",
-                        onAction = { viewModel.triggerScan() }
-                    )
+                    items(artistSongs) { song ->
+                        SongListItem(
+                            song = song,
+                            settings = settings,
+                            onPlay = { viewModel.playSong(song, artistSongs) },
+                            onFavoriteToggle = { viewModel.toggleFavorite(song.id, !song.isFavorite) }
+                        )
+                    }
                 }
-            } else {
-                items(songs) { song ->
-                    SongListItem(
-                        song = song,
-                        settings = settings,
-                        onPlay = { viewModel.playSong(song, songs) },
-                        onFavoriteToggle = { viewModel.toggleFavorite(song.id, !song.isFavorite) }
-                    )
+            } else if (selectedCategory == "Playlists") {
+                if (selectedPlaylist == null) {
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Playlists (${playlists.size})",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                    }
+
+                    if (playlists.isEmpty()) {
+                        item {
+                            EmptyStatePlaceholder(
+                                title = "No playlists found",
+                                subtitle = "Go to the Playlists screen or use options to group your tracks.",
+                                icon = Icons.Default.QueueMusic
+                            )
+                        }
+                    } else {
+                        items(playlists) { playlist ->
+                            PlaylistListItemHome(
+                                playlist = playlist,
+                                settings = settings,
+                                onClick = { selectedPlaylist = playlist },
+                                onDelete = { viewModel.deletePlaylist(playlist) }
+                            )
+                        }
+                    }
+                } else {
+                    item {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            IconButton(onClick = { selectedPlaylist = null }) {
+                                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = selectedPlaylist?.name ?: "Playlist Details",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "${playlistSongs.size} ${if (playlistSongs.size == 1) "Song" else "Songs"}",
+                                    fontSize = 12.sp,
+                                    color = Color.White.copy(alpha = 0.5f)
+                                )
+                            }
+                        }
+                    }
+
+                    if (playlistSongs.isEmpty()) {
+                        item {
+                            EmptyStatePlaceholder(
+                                title = "This playlist is empty",
+                                subtitle = "Add songs to this playlist from the song options.",
+                                icon = Icons.Default.MusicNote
+                            )
+                        }
+                    } else {
+                        items(playlistSongs) { song ->
+                            SongListItem(
+                                song = song,
+                                settings = settings,
+                                onPlay = { viewModel.playSong(song, playlistSongs) },
+                                onFavoriteToggle = { viewModel.toggleFavorite(song.id, !song.isFavorite) }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -1880,6 +2140,206 @@ fun EmptyStatePlaceholder(
             ) {
                 Text(actionText, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             }
+        }
+    }
+}
+
+@Composable
+fun AlbumListItem(
+    album: String,
+    artist: String,
+    trackCount: Int,
+    settings: BeatFlowSettings,
+    onClick: () -> Unit
+) {
+    val gradientIdx = (album.hashCode() % ProfessionalPolishGradients.size).let { if (it < 0) -it else it }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (settings.isGlassEnabled) GlassDarkSurface.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.03f))
+            .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Album Cover Art (Sleek Gradient Disc)
+        Box(
+            modifier = Modifier
+                .size(52.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(ProfessionalPolishGradients[gradientIdx])
+                .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(10.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Album,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.8f),
+                modifier = Modifier.size(24.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        // Titles
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = album,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                fontSize = 15.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "$artist • $trackCount ${if (trackCount == 1) "Song" else "Songs"}",
+                color = Color.White.copy(alpha = 0.5f),
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
+
+        Icon(
+            imageVector = Icons.Default.ArrowForward,
+            contentDescription = "Open Album",
+            tint = Color.White.copy(alpha = 0.4f),
+            modifier = Modifier.size(18.dp)
+        )
+    }
+}
+
+@Composable
+fun ArtistListItem(
+    artist: String,
+    trackCount: Int,
+    settings: BeatFlowSettings,
+    onClick: () -> Unit
+) {
+    val gradientIdx = (artist.hashCode() % ProfessionalPolishGradients.size).let { if (it < 0) -it else it }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (settings.isGlassEnabled) GlassDarkSurface.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.03f))
+            .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Artist Portrait Avatar Placeholder (Circular)
+        Box(
+            modifier = Modifier
+                .size(52.dp)
+                .clip(CircleShape)
+                .background(ProfessionalPolishGradients[gradientIdx])
+                .border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Person,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.8f),
+                modifier = Modifier.size(24.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        // Titles
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = artist,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                fontSize = 15.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "$trackCount ${if (trackCount == 1) "Song" else "Songs"}",
+                color = Color.White.copy(alpha = 0.5f),
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
+
+        Icon(
+            imageVector = Icons.Default.ArrowForward,
+            contentDescription = "Open Artist",
+            tint = Color.White.copy(alpha = 0.4f),
+            modifier = Modifier.size(18.dp)
+        )
+    }
+}
+
+@Composable
+fun PlaylistListItemHome(
+    playlist: Playlist,
+    settings: BeatFlowSettings,
+    onClick: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val gradientIdx = (playlist.name.hashCode() % ProfessionalPolishGradients.size).let { if (it < 0) -it else it }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (settings.isGlassEnabled) GlassDarkSurface.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.03f))
+            .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(52.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(ProfessionalPolishGradients[gradientIdx])
+                .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(10.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.QueueMusic,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.8f),
+                modifier = Modifier.size(24.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        // Titles
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = playlist.name,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                fontSize = 15.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "Custom Playlist",
+                color = Color.White.copy(alpha = 0.5f),
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
+
+        IconButton(onClick = onDelete) {
+            Icon(
+                imageVector = Icons.Default.Delete,
+                contentDescription = "Delete Playlist",
+                tint = Color.Red.copy(alpha = 0.6f),
+                modifier = Modifier.size(18.dp)
+            )
         }
     }
 }
