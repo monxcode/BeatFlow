@@ -1911,6 +1911,15 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
+    val accentColor = Accents[settings.accentColorIndex]
+    val contrastingThumbColor = remember(settings.accentColorIndex) {
+        val r = accentColor.red
+        val g = accentColor.green
+        val b = accentColor.blue
+        val luminance = 0.2126f * r + 0.7152f * g + 0.0722f * b
+        if (luminance > 0.5f) Color(0xFF121212) else Color.White
+    }
+
     val isTiramisu = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S_V2
     val permissionsToRequest = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         arrayOf(
@@ -1981,7 +1990,10 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                         Switch(
                             checked = settings.isDarkMode,
                             onCheckedChange = { viewModel.updateThemeSettings(it, settings.isAmoledMode, settings.isGlassEnabled, settings.accentColorIndex) },
-                            colors = SwitchDefaults.colors(checkedThumbColor = Accents[settings.accentColorIndex])
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = contrastingThumbColor,
+                                checkedTrackColor = accentColor
+                            )
                         )
                     }
 
@@ -1995,7 +2007,10 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                         Switch(
                             checked = settings.isAmoledMode,
                             onCheckedChange = { viewModel.updateThemeSettings(settings.isDarkMode, it, settings.isGlassEnabled, settings.accentColorIndex) },
-                            colors = SwitchDefaults.colors(checkedThumbColor = Accents[settings.accentColorIndex])
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = contrastingThumbColor,
+                                checkedTrackColor = accentColor
+                            )
                         )
                     }
 
@@ -2429,7 +2444,10 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                                                 settings.scanSDCard
                                             )
                                         },
-                                        colors = SwitchDefaults.colors(checkedThumbColor = Accents[settings.accentColorIndex])
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = contrastingThumbColor,
+                                            checkedTrackColor = accentColor
+                                        )
                                     )
                                 }
 
@@ -2451,7 +2469,10 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                                                 settings.scanSDCard
                                             )
                                         },
-                                        colors = SwitchDefaults.colors(checkedThumbColor = Accents[settings.accentColorIndex])
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = contrastingThumbColor,
+                                            checkedTrackColor = accentColor
+                                        )
                                     )
                                 }
 
@@ -2473,7 +2494,10 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                                                 settings.scanSDCard
                                             )
                                         },
-                                        colors = SwitchDefaults.colors(checkedThumbColor = Accents[settings.accentColorIndex])
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = contrastingThumbColor,
+                                            checkedTrackColor = accentColor
+                                        )
                                     )
                                 }
 
@@ -2495,7 +2519,10 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                                                 it
                                             )
                                         },
-                                        colors = SwitchDefaults.colors(checkedThumbColor = Accents[settings.accentColorIndex])
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = contrastingThumbColor,
+                                            checkedTrackColor = accentColor
+                                        )
                                     )
                                 }
 
@@ -2517,7 +2544,10 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                                                 settings.scanSDCard
                                             )
                                         },
-                                        colors = SwitchDefaults.colors(checkedThumbColor = Accents[settings.accentColorIndex])
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = contrastingThumbColor,
+                                            checkedTrackColor = accentColor
+                                        )
                                     )
                                 }
                             }
@@ -2645,31 +2675,18 @@ fun LatestTrackCard(
                     .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(12.dp)),
                 contentAlignment = Alignment.Center
             ) {
+                Icon(
+                    imageVector = Icons.Default.MusicNote,
+                    contentDescription = null,
+                    tint = themeText.copy(alpha = 0.8f),
+                    modifier = Modifier.size(36.dp)
+                )
                 if (!song.artworkUri.isNullOrEmpty()) {
-                    SubcomposeAsyncImage(
+                    AsyncImage(
                         model = song.artworkUri,
                         contentDescription = "Album Art",
                         modifier = Modifier.fillMaxSize(),
                         contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                    ) {
-                        val state = painter.state
-                        if (state is AsyncImagePainter.State.Success) {
-                            SubcomposeAsyncImageContent()
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.MusicNote,
-                                contentDescription = null,
-                                tint = themeText.copy(alpha = 0.8f),
-                                modifier = Modifier.size(36.dp)
-                            )
-                        }
-                    }
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.MusicNote,
-                        contentDescription = null,
-                        tint = themeText.copy(alpha = 0.8f),
-                        modifier = Modifier.size(36.dp)
                     )
                 }
             }
@@ -2942,31 +2959,18 @@ fun SongListItem(
                 .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(10.dp)),
             contentAlignment = Alignment.Center
         ) {
+            Icon(
+                imageVector = Icons.Default.MusicNote,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.8f),
+                modifier = Modifier.size(20.dp)
+            )
             if (!song.artworkUri.isNullOrEmpty()) {
-                SubcomposeAsyncImage(
+                AsyncImage(
                     model = song.artworkUri,
                     contentDescription = "Album Art",
                     modifier = Modifier.fillMaxSize(),
                     contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                ) {
-                    val state = painter.state
-                    if (state is AsyncImagePainter.State.Success) {
-                        SubcomposeAsyncImageContent()
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.MusicNote,
-                            contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.8f),
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-            } else {
-                Icon(
-                    imageVector = Icons.Default.MusicNote,
-                    contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.8f),
-                    modifier = Modifier.size(20.dp)
                 )
             }
         }

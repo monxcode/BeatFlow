@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
     <application
         android:allowBackup="true"
@@ -16,10 +18,24 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.MyApplication">
+
+        <service
+            android:name="com.example.playback.MusicService"
+            android:enabled="true"
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaSessionService" />
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
+            android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize|density"
             android:theme="@style/Theme.MyApplication">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

@@ -2,6 +2,7 @@ package com.example.playback
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.util.Log
 import androidx.annotation.OptIn
@@ -9,6 +10,7 @@ import androidx.core.content.ContextCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
@@ -164,7 +166,7 @@ object PlaybackManager {
         player.stop()
         player.clearMediaItems()
         
-        val mediaItem = MediaItem.fromUri(song.path)
+        val mediaItem = createMediaItem(song)
         player.setMediaItem(mediaItem)
         player.prepare()
         player.play()
@@ -191,7 +193,7 @@ object PlaybackManager {
         } else {
             if (player.mediaItemCount == 0 && _currentSong.value != null) {
                 // Restore item
-                val mediaItem = MediaItem.fromUri(_currentSong.value!!.path)
+                val mediaItem = createMediaItem(_currentSong.value!!)
                 player.setMediaItem(mediaItem)
                 player.seekTo(_currentPosition.value)
                 player.prepare()
@@ -366,10 +368,25 @@ object PlaybackManager {
 
     private fun startService(context: Context) {
         val intent = Intent(context.applicationContext, MusicService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            ContextCompat.startForegroundService(context, intent)
-        } else {
-            context.startService(intent)
-        }
+        context.startService(intent)
+    }
+
+    fun releasePlayer() {
+        exoPlayer?.release()
+        exoPlayer = null
+        repository = null
+    }
+
+    private fun createMediaItem(song: Song): MediaItem {
+        val mediaMetadata = MediaMetadata.Builder()
+            .setTitle(song.title)
+            .setArtist(song.artist)
+            .setAlbumTitle(song.album)
+            .setArtworkUri(if (!song.artworkUri.isNullOrEmpty()) Uri.parse(song.artworkUri) else null)
+            .build()
+        return MediaItem.Builder()
+            .setUri(song.path)
+            .setMediaMetadata(mediaMetadata)
+            .build()
     }
 }

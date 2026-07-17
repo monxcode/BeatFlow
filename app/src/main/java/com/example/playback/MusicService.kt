@@ -32,10 +32,10 @@ class MusicService : MediaSessionService() {
     override fun onDestroy() {
         try {
             mediaSession?.run {
-                player.release()
                 release()
                 mediaSession = null
             }
+            PlaybackManager.releasePlayer()
         } catch (e: Exception) {
             e.printStackTrace()
         }

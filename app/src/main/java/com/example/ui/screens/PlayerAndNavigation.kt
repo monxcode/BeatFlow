@@ -61,7 +61,6 @@ fun MainContainerScreen(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val currentSong by viewModel.currentSong.collectAsStateWithLifecycle()
     val isPlaying by viewModel.isPlaying.collectAsStateWithLifecycle()
-    val progress by viewModel.currentPosition.collectAsStateWithLifecycle()
     val duration by viewModel.duration.collectAsStateWithLifecycle()
 
     var activeTab by remember { mutableStateOf(0) } // 0=Home, 1=Fav, 2=Library, 3=Settings
@@ -70,6 +69,20 @@ fun MainContainerScreen(
     var showQueueSheet by remember { mutableStateOf(false) }
 
     val accentColor = Accents[settings.accentColorIndex]
+
+    val showUnifiedPlayer = currentSong != null && !isPlayerExpanded
+
+    val barHeight by animateDpAsState(
+        targetValue = if (showUnifiedPlayer) 128.dp else 64.dp,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
+        label = "barHeight"
+    )
+
+    val cardCornerRadius by animateDpAsState(
+        targetValue = if (showUnifiedPlayer) 24.dp else 32.dp,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
+        label = "cornerRadius"
+    )
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -87,72 +100,122 @@ fun MainContainerScreen(
                 GlassCard(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(64.dp),
-                    cornerRadius = 32.dp,
+                        .height(barHeight),
+                    cornerRadius = cardCornerRadius,
                     isGlassEnabled = settings.isGlassEnabled,
-                    isDark = settings.isDarkMode
+                    isDark = settings.isDarkMode,
+                    applyBlur = true // Static bottom bar: safe to apply backdrop blur
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalArrangement = Arrangement.SpaceAround,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Tab 1: Home
-                        NavBarItem(
-                            icon = Icons.Default.Home,
-                            label = "Home",
-                            isActive = activeTab == 0,
-                            accentColor = accentColor,
-                            isDark = settings.isDarkMode,
-                            onClick = { activeTab = 0 }
-                        )
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        AnimatedVisibility(
+                            visible = showUnifiedPlayer,
+                            enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
+                            exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut()
+                        ) {
+                            if (currentSong != null) {
+                                MiniPlayer(
+                                    song = currentSong!!,
+                                    isPlaying = isPlaying,
+                                    accentColor = accentColor,
+                                    isGlassEnabled = settings.isGlassEnabled,
+                                    isDark = settings.isDarkMode,
+                                    viewModel = viewModel,
+                                    onPlayPause = { viewModel.togglePlayPause() },
+                                    onNext = { viewModel.playNext() },
+                                    onClick = { isPlayerExpanded = true },
+                                    isEmbedded = true
+                                )
+                                HorizontalDivider(
+                                    color = Color.White.copy(alpha = 0.08f),
+                                    thickness = 1.dp,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
 
-                        // Tab 2: Favorites
-                        NavBarItem(
-                            icon = Icons.Default.Favorite,
-                            label = "Favs",
-                            isActive = activeTab == 1,
-                            accentColor = accentColor,
-                            isDark = settings.isDarkMode,
-                            onClick = { activeTab = 1 }
-                        )
+                        // Navigation Bar Row
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(64.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Crossfade(
+                                targetState = showUnifiedPlayer,
+                                animationSpec = tween(durationMillis = 300),
+                                label = "NavBarTabsTransition"
+                            ) { unified ->
+                                Row(
+                                    modifier = Modifier.fillMaxSize(),
+                                    horizontalArrangement = Arrangement.SpaceAround,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // Tab 1: Home
+                                    NavBarItem(
+                                        icon = Icons.Default.Home,
+                                        label = "Home",
+                                        isActive = activeTab == 0,
+                                        accentColor = accentColor,
+                                        isDark = settings.isDarkMode,
+                                        onClick = { activeTab = 0 }
+                                    )
 
-                        // Placeholder for Center Circular Player Button
-                        Spacer(modifier = Modifier.width(64.dp))
+                                    // Tab 2: Favorites
+                                    NavBarItem(
+                                        icon = Icons.Default.Favorite,
+                                        label = "Favs",
+                                        isActive = activeTab == 1,
+                                        accentColor = accentColor,
+                                        isDark = settings.isDarkMode,
+                                        onClick = { activeTab = 1 }
+                                    )
 
-                        // Tab 3: Playlists/Folders
-                        NavBarItem(
-                            icon = Icons.Default.LibraryMusic,
-                            label = "Library",
-                            isActive = activeTab == 2,
-                            accentColor = accentColor,
-                            isDark = settings.isDarkMode,
-                            onClick = { activeTab = 2 }
-                        )
+                                    if (!unified) {
+                                        // Placeholder for Center Circular Player Button
+                                        Spacer(modifier = Modifier.width(64.dp))
+                                    }
 
-                        // Tab 4: Settings
-                        NavBarItem(
-                            icon = Icons.Default.Settings,
-                            label = "Settings",
-                            isActive = activeTab == 3,
-                            accentColor = accentColor,
-                            isDark = settings.isDarkMode,
-                            onClick = { activeTab = 3 }
-                        )
+                                    // Tab 3: Playlists/Folders
+                                    NavBarItem(
+                                        icon = Icons.Default.LibraryMusic,
+                                        label = "Library",
+                                        isActive = activeTab == 2,
+                                        accentColor = accentColor,
+                                        isDark = settings.isDarkMode,
+                                        onClick = { activeTab = 2 }
+                                    )
+
+                                    // Tab 4: Settings
+                                    NavBarItem(
+                                        icon = Icons.Default.Settings,
+                                        label = "Settings",
+                                        isActive = activeTab == 3,
+                                        accentColor = accentColor,
+                                        isDark = settings.isDarkMode,
+                                        onClick = { activeTab = 3 }
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 
                 // LARGE CENTER FLOATING CIRCULAR PLAYER BUTTON
-                val progressPercent = if (duration > 0) progress.toFloat() / duration else 0f
-                CenterCirclePlayerButton(
-                    isPlaying = isPlaying,
-                    progressPercent = progressPercent,
-                    currentSong = currentSong,
-                    accentColor = accentColor,
-                    isGlassEnabled = settings.isGlassEnabled,
-                    isDark = settings.isDarkMode,
-                    onClick = { isPlayerExpanded = true }
-                )
+                AnimatedVisibility(
+                    visible = !showUnifiedPlayer,
+                    enter = scaleIn() + fadeIn(),
+                    exit = scaleOut() + fadeOut()
+                ) {
+                    CenterCirclePlayerButton(
+                        isPlaying = isPlaying,
+                        viewModel = viewModel,
+                        currentSong = currentSong,
+                        accentColor = accentColor,
+                        isGlassEnabled = settings.isGlassEnabled,
+                        isDark = settings.isDarkMode,
+                        onClick = { isPlayerExpanded = true }
+                    )
+                }
             }
         }
     ) { innerPadding ->
@@ -173,29 +236,6 @@ fun MainContainerScreen(
                     1 -> FavoritesScreenContent(viewModel)
                     2 -> PlaylistsScreenContent(viewModel)
                     3 -> SettingsScreenContent(viewModel)
-                }
-            }
-
-            // FLOATING MINI PLAYER (Above Navigation, only if a song is loaded)
-            if (currentSong != null && !isPlayerExpanded) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 92.dp) // Sits neatly above the floating nav
-                        .padding(horizontal = 16.dp)
-                ) {
-                    val progressPercent = if (duration > 0) progress.toFloat() / duration else 0f
-                    MiniPlayer(
-                        song = currentSong!!,
-                        isPlaying = isPlaying,
-                        accentColor = accentColor,
-                        isGlassEnabled = settings.isGlassEnabled,
-                        isDark = settings.isDarkMode,
-                        progressPercent = progressPercent,
-                        onPlayPause = { viewModel.togglePlayPause() },
-                        onNext = { viewModel.playNext() },
-                        onClick = { isPlayerExpanded = true }
-                    )
                 }
             }
         }
@@ -265,13 +305,17 @@ fun NavBarItem(
 @Composable
 fun CenterCirclePlayerButton(
     isPlaying: Boolean,
-    progressPercent: Float,
+    viewModel: MainViewModel,
     currentSong: Song?,
     accentColor: Color,
     isGlassEnabled: Boolean,
     isDark: Boolean,
     onClick: () -> Unit
 ) {
+    val progress by viewModel.currentPosition.collectAsStateWithLifecycle()
+    val duration by viewModel.duration.collectAsStateWithLifecycle()
+    val progressPercent = if (duration > 0) progress.toFloat() / duration else 0f
+
     // Dynamic scale beat effect
     val animatedScale by animateFloatAsState(
         targetValue = if (isPlaying) 1.08f else 1.0f,
@@ -326,41 +370,24 @@ fun MiniPlayer(
     accentColor: Color,
     isGlassEnabled: Boolean,
     isDark: Boolean,
-    progressPercent: Float,
+    viewModel: MainViewModel,
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    isEmbedded: Boolean = false
 ) {
-    GlassCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(64.dp)
-            .testTag("mini_player")
-            .drawBehind {
-                val barHeight = 2.dp.toPx()
-                // Background track matching progress bar in HTML (white/5)
-                drawRect(
-                    color = Color.White.copy(alpha = 0.05f),
-                    size = size.copy(height = barHeight),
-                    topLeft = Offset(0f, size.height - barHeight)
-                )
-                // Active progress track filled with accent color
-                drawRect(
-                    color = accentColor,
-                    size = size.copy(width = size.width * progressPercent, height = barHeight),
-                    topLeft = Offset(0f, size.height - barHeight)
-                )
-            }
-            .clickable(onClick = onClick),
-        cornerRadius = 16.dp,
-        isGlassEnabled = isGlassEnabled,
-        isDark = isDark
-    ) {
+    val progress by viewModel.currentPosition.collectAsStateWithLifecycle()
+    val duration by viewModel.duration.collectAsStateWithLifecycle()
+    val progressPercent = if (duration > 0) progress.toFloat() / duration else 0f
+
+    val content = @Composable {
         Row(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(64.dp)
+                .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Album art preview
             Box(
                 modifier = Modifier
                     .size(44.dp)
@@ -369,31 +396,18 @@ fun MiniPlayer(
                     .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(10.dp)),
                 contentAlignment = Alignment.Center
             ) {
+                Icon(
+                    imageVector = Icons.Default.MusicNote,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(20.dp)
+                )
                 if (!song.artworkUri.isNullOrEmpty()) {
-                    SubcomposeAsyncImage(
+                    AsyncImage(
                         model = song.artworkUri,
                         contentDescription = "Album Art",
                         modifier = Modifier.fillMaxSize(),
                         contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                    ) {
-                        val state = painter.state
-                        if (state is AsyncImagePainter.State.Success) {
-                            SubcomposeAsyncImageContent()
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.MusicNote,
-                                contentDescription = null,
-                                tint = accentColor,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.MusicNote,
-                        contentDescription = null,
-                        tint = accentColor,
-                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
@@ -438,6 +452,60 @@ fun MiniPlayer(
                     modifier = Modifier.size(24.dp)
                 )
             }
+        }
+    }
+
+    if (isEmbedded) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .drawBehind {
+                    val barHeight = 2.dp.toPx()
+                    // Background track matching progress bar in HTML (white/5)
+                    drawRect(
+                        color = Color.White.copy(alpha = 0.05f),
+                        size = size.copy(height = barHeight),
+                        topLeft = Offset(0f, size.height - barHeight)
+                    )
+                    // Active progress track filled with accent color
+                    drawRect(
+                        color = accentColor,
+                        size = size.copy(width = size.width * progressPercent, height = barHeight),
+                        topLeft = Offset(0f, size.height - barHeight)
+                    )
+                }
+        ) {
+            content()
+        }
+    } else {
+        GlassCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(64.dp)
+                .testTag("mini_player")
+                .drawBehind {
+                    val barHeight = 2.dp.toPx()
+                    // Background track matching progress bar in HTML (white/5)
+                    drawRect(
+                        color = Color.White.copy(alpha = 0.05f),
+                        size = size.copy(height = barHeight),
+                        topLeft = Offset(0f, size.height - barHeight)
+                    )
+                    // Active progress track filled with accent color
+                    drawRect(
+                        color = accentColor,
+                        size = size.copy(width = size.width * progressPercent, height = barHeight),
+                        topLeft = Offset(0f, size.height - barHeight)
+                    )
+                }
+                .clickable(onClick = onClick),
+            cornerRadius = 16.dp,
+            isGlassEnabled = isGlassEnabled,
+            isDark = isDark,
+            applyBlur = true // Static mini-player overlay: safe to apply backdrop blur
+        ) {
+            content()
         }
     }
 }
@@ -523,7 +591,6 @@ fun FullPlayerScreen(
                     .padding(vertical = 32.dp),
                 contentAlignment = Alignment.Center
             ) {
-                // Large styled album art glow card
                 Box(
                     modifier = Modifier
                         .size(270.dp)
@@ -537,31 +604,18 @@ fun FullPlayerScreen(
                         .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(32.dp)),
                     contentAlignment = Alignment.Center
                 ) {
+                    Icon(
+                        imageVector = Icons.Default.MusicNote,
+                        contentDescription = null,
+                        tint = accentColor,
+                        modifier = Modifier.size(110.dp)
+                    )
                     if (currentSong != null && !currentSong!!.artworkUri.isNullOrEmpty()) {
-                        SubcomposeAsyncImage(
+                        AsyncImage(
                             model = currentSong!!.artworkUri,
                             contentDescription = "Album Art",
                             modifier = Modifier.fillMaxSize(),
                             contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                        ) {
-                            val state = painter.state
-                            if (state is AsyncImagePainter.State.Success) {
-                                SubcomposeAsyncImageContent()
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.MusicNote,
-                                    contentDescription = null,
-                                    tint = accentColor,
-                                    modifier = Modifier.size(110.dp)
-                                )
-                            }
-                        }
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.MusicNote,
-                            contentDescription = null,
-                            tint = accentColor,
-                            modifier = Modifier.size(110.dp)
                         )
                     }
                 }

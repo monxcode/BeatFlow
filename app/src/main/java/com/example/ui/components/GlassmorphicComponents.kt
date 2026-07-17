@@ -38,10 +38,11 @@ fun GlassCard(
     isGlassEnabled: Boolean = true,
     isDark: Boolean = true,
     onClick: (() -> Unit)? = null,
+    applyBlur: Boolean = false, // Optimized: Default to false to prevent expensive blurs in lists
     content: @Composable BoxScope.() -> Unit
 ) {
-    val blurEffect = remember(isGlassEnabled) {
-        if (isGlassEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    val blurEffect = remember(isGlassEnabled, applyBlur) {
+        if (isGlassEnabled && applyBlur && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             RenderEffect.createBlurEffect(
                 20f, 20f, Shader.TileMode.CLAMP
             ).asComposeRenderEffect()
