@@ -2689,7 +2689,7 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text("Product Version", color = themeTextMuted, fontSize = 12.sp)
-                        Text("v1.0.1", color = themeText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("v1.0.2", color = themeText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                     HorizontalDivider(color = themeDivider)
                     Row(
