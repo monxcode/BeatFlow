@@ -3529,6 +3529,7 @@ fun LatestTrackCard(
     settings: BeatFlowSettings,
     onPlay: () -> Unit
 ) {
+    val artworkModel = rememberArtworkModel(song)
     Box(
         modifier = Modifier
             .width(130.dp)
@@ -3555,9 +3556,9 @@ fun LatestTrackCard(
                     tint = themeText.copy(alpha = 0.8f),
                     modifier = Modifier.size(36.dp)
                 )
-                if (!song.artworkUri.isNullOrEmpty()) {
+                if (artworkModel != null) {
                     AsyncImage(
-                        model = song.artworkUri,
+                        model = artworkModel,
                         contentDescription = "Album Art",
                         modifier = Modifier.fillMaxSize(),
                         contentScale = androidx.compose.ui.layout.ContentScale.Crop
