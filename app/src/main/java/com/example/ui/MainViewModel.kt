@@ -267,6 +267,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun renamePlaylist(playlist: Playlist, newName: String) {
+        viewModelScope.launch {
+            repository.updatePlaylist(playlist.copy(name = newName))
+        }
+    }
+
     fun deletePlaylist(playlist: Playlist) {
         viewModelScope.launch {
             repository.deletePlaylist(playlist)

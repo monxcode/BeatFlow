@@ -21,6 +21,7 @@ import android.Manifest
 import android.os.Build
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.PickVisualMediaRequest
@@ -1135,6 +1136,11 @@ fun FavoritesScreenContent(viewModel: MainViewModel) {
 }
 
 // ---------------- PLAYLISTS / FOLDERS SCREEN ----------------
+sealed interface LibraryDetailScreen {
+    data class PlaylistDetails(val playlist: Playlist) : LibraryDetailScreen
+    data class FolderDetails(val folderName: String) : LibraryDetailScreen
+}
+
 @Composable
 fun PlaylistsScreenContent(viewModel: MainViewModel) {
     val songs by viewModel.allSongs.collectAsStateWithLifecycle()
@@ -1150,124 +1156,171 @@ fun PlaylistsScreenContent(viewModel: MainViewModel) {
     }
 
     var selectedTab by remember { mutableStateOf(0) } // 0 = Playlists, 1 = Folders
+    var activeDetailScreen by remember { mutableStateOf<LibraryDetailScreen?>(null) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp)
-    ) {
-        Spacer(modifier = Modifier.height(24.dp))
-        Text(
-            text = "Your Library",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = themeText
-        )
-        
-        Spacer(modifier = Modifier.height(16.dp))
+    BackHandler(enabled = activeDetailScreen != null) {
+        activeDetailScreen = null
+    }
 
-        // Custom tabs row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            LibraryTabButton(
-                text = "Playlists",
-                isActive = selectedTab == 0,
-                accentColor = Accents[settings.accentColorIndex],
-                onClick = { selectedTab = 0 }
-            )
-            LibraryTabButton(
-                text = "Folders",
-                isActive = selectedTab == 1,
-                accentColor = Accents[settings.accentColorIndex],
-                onClick = { selectedTab = 1 }
-            )
-        }
+    AnimatedContent(
+        targetState = activeDetailScreen,
+        transitionSpec = {
+            if (targetState != null) {
+                slideInHorizontally { width -> width } + fadeIn() togetherWith
+                    slideOutHorizontally { width -> -width } + fadeOut()
+            } else {
+                slideInHorizontally { width -> -width } + fadeIn() togetherWith
+                    slideOutHorizontally { width -> width } + fadeOut()
+            }
+        },
+        label = "LibraryScreenTransition"
+    ) { screen ->
+        when (screen) {
+            null -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp)
+                ) {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Text(
+                        text = "Your Library",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = themeText
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
 
-        Spacer(modifier = Modifier.height(16.dp))
+                    // Custom tabs row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        LibraryTabButton(
+                            text = "Playlists",
+                            isActive = selectedTab == 0,
+                            accentColor = Accents[settings.accentColorIndex],
+                            onClick = { selectedTab = 0 }
+                        )
+                        LibraryTabButton(
+                            text = "Folders",
+                            isActive = selectedTab == 1,
+                            accentColor = Accents[settings.accentColorIndex],
+                            onClick = { selectedTab = 1 }
+                        )
+                    }
 
-        if (selectedTab == 0) {
-            // Playlists Tab
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Custom Playlists",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = themeText
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    if (selectedTab == 0) {
+                        // Playlists Tab
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Custom Playlists",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = themeText
+                            )
+                            Button(
+                                onClick = { showCreateDialog = true },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Accents[settings.accentColorIndex].copy(alpha = 0.15f),
+                                    contentColor = Accents[settings.accentColorIndex]
+                                ),
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+                                Spacer(Modifier.width(4.dp))
+                                Text("New", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        if (playlists.isEmpty()) {
+                            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                                EmptyStatePlaceholder(
+                                    title = "No Playlists",
+                                    subtitle = "Create your custom offline music collections.",
+                                    icon = Icons.AutoMirrored.Filled.List
+                                )
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(bottom = 120.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                items(playlists, key = { it.id }) { playlist ->
+                                    val onDelete = remember(playlist) { { viewModel.deletePlaylist(playlist) } }
+                                    PlaylistListItem(
+                                        playlist = playlist,
+                                        settings = settings,
+                                        onDelete = onDelete,
+                                        onClick = { activeDetailScreen = LibraryDetailScreen.PlaylistDetails(playlist) }
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        // Folders Tab
+                        if (folders.isEmpty()) {
+                            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                                EmptyStatePlaceholder(
+                                    title = "No folders identified",
+                                    subtitle = "Scan your device downloads or documents for audios.",
+                                    icon = Icons.Default.FolderOpen
+                                )
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(bottom = 120.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                items(folders.keys.toList(), key = { it }) { folderName ->
+                                    val folderSongs = folders[folderName] ?: emptyList()
+                                    val onPlayFolder = remember(folderName, folderSongs) { { viewModel.playQueue(folderSongs, 0) } }
+                                    FolderListItem(
+                                        name = folderName,
+                                        songsCount = folderSongs.size,
+                                        settings = settings,
+                                        onPlayFolder = onPlayFolder,
+                                        onClick = { activeDetailScreen = LibraryDetailScreen.FolderDetails(folderName) }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            is LibraryDetailScreen.PlaylistDetails -> {
+                // If the playlist gets deleted by user, go back safely
+                val currentPlaylist = playlists.find { it.id == screen.playlist.id }
+                if (currentPlaylist != null) {
+                    PlaylistDetailsScreen(
+                        playlist = currentPlaylist,
+                        viewModel = viewModel,
+                        onBack = { activeDetailScreen = null }
+                    )
+                } else {
+                    LaunchedEffect(Unit) {
+                        activeDetailScreen = null
+                    }
+                }
+            }
+            is LibraryDetailScreen.FolderDetails -> {
+                FolderDetailsScreen(
+                    folderName = screen.folderName,
+                    viewModel = viewModel,
+                    onBack = { activeDetailScreen = null }
                 )
-                Button(
-                    onClick = { showCreateDialog = true },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Accents[settings.accentColorIndex].copy(alpha = 0.15f),
-                        contentColor = Accents[settings.accentColorIndex]
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
-                    Spacer(Modifier.width(4.dp))
-                    Text("New", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            if (playlists.isEmpty()) {
-                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    EmptyStatePlaceholder(
-                        title = "No Playlists",
-                        subtitle = "Create your custom offline music collections.",
-                        icon = Icons.AutoMirrored.Filled.List
-                    )
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(bottom = 120.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(playlists, key = { it.id }) { playlist ->
-                        val onDelete = remember(playlist) { { viewModel.deletePlaylist(playlist) } }
-                        PlaylistListItem(
-                            playlist = playlist,
-                            settings = settings,
-                            onDelete = onDelete
-                        )
-                    }
-                }
-            }
-        } else {
-            // Folders Tab
-            if (folders.isEmpty()) {
-                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    EmptyStatePlaceholder(
-                        title = "No folders identified",
-                        subtitle = "Scan your device downloads or documents for audios.",
-                        icon = Icons.Default.FolderOpen
-                    )
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(bottom = 120.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    items(folders.keys.toList(), key = { it }) { folderName ->
-                        val folderSongs = folders[folderName] ?: emptyList()
-                        val onPlayFolder = remember(folderName, folderSongs) { { viewModel.playQueue(folderSongs, 0) } }
-                        FolderListItem(
-                            name = folderName,
-                            songsCount = folderSongs.size,
-                            settings = settings,
-                            onPlayFolder = onPlayFolder
-                        )
-                    }
-                }
             }
         }
     }
@@ -1311,6 +1364,506 @@ fun PlaylistsScreenContent(viewModel: MainViewModel) {
             },
             containerColor = themeDialogBg
         )
+    }
+}
+
+@Composable
+fun AddSongsToPlaylistDialog(
+    playlist: Playlist,
+    playlistSongs: List<Song>,
+    viewModel: MainViewModel,
+    settings: BeatFlowSettings,
+    onDismiss: () -> Unit
+) {
+    val allSongs by viewModel.allSongs.collectAsStateWithLifecycle(initialValue = emptyList())
+    val context = LocalContext.current
+    
+    val isDark = LocalIsDarkMode.current
+    val itemText = if (isDark) Color.White else Color(0xFF121212)
+    val itemTextMuted = if (isDark) Color.White.copy(alpha = 0.6f) else Color(0xFF121212).copy(alpha = 0.6f)
+    val itemDialogBg = if (isDark) Color(0xFF1E1E1E) else Color(0xFFFFFFFF)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add Songs to '${playlist.name}'", color = itemText, fontWeight = FontWeight.Bold, fontSize = 18.sp) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (allSongs.isEmpty()) {
+                    Text("No songs found in your library to add.", color = itemTextMuted, fontSize = 14.sp)
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 300.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(allSongs, key = { it.id }) { song ->
+                            val isAlreadyInPlaylist = remember(playlistSongs, song.id) {
+                                playlistSongs.any { it.id == song.id }
+                            }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color.White.copy(alpha = 0.04f))
+                                    .padding(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                    Text(song.title, color = itemText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(song.artist, color = itemTextMuted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                                if (isAlreadyInPlaylist) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = "Added",
+                                        tint = NeonGreen,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                } else {
+                                    IconButton(
+                                        onClick = {
+                                            viewModel.addSongToPlaylist(playlist.id, song.id)
+                                            android.widget.Toast.makeText(context, "Added '${song.title}' to playlist", android.widget.Toast.LENGTH_SHORT).show()
+                                        },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Add,
+                                            contentDescription = "Add",
+                                            tint = Accents[settings.accentColorIndex],
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", color = itemTextMuted)
+            }
+        },
+        containerColor = itemDialogBg
+    )
+}
+
+@Composable
+fun PlaylistDetailsScreen(
+    playlist: Playlist,
+    viewModel: MainViewModel,
+    onBack: () -> Unit
+) {
+    val playlistSongs by remember(playlist.id) {
+        viewModel.getSongsInPlaylist(playlist.id)
+    }.collectAsStateWithLifecycle(initialValue = emptyList())
+
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val accentColor = Accents[settings.accentColorIndex]
+
+    var showAddSongsDialog by remember { mutableStateOf(false) }
+    var showRenameDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    var renameValue by remember(playlist.name) { mutableStateOf(playlist.name) }
+
+    val totalDurationMs = remember(playlistSongs) {
+        playlistSongs.sumOf { it.duration }
+    }
+    val totalDurationText = remember(totalDurationMs) {
+        val totalSeconds = totalDurationMs / 1000
+        val hours = totalSeconds / 3600
+        val minutes = (totalSeconds % 3600) / 60
+        val seconds = totalSeconds % 60
+        when {
+            hours > 0 -> "${hours}h ${minutes}m"
+            minutes > 0 -> "${minutes}m ${seconds}s"
+            else -> "${seconds}s"
+        }
+    }
+
+    if (showAddSongsDialog) {
+        AddSongsToPlaylistDialog(
+            playlist = playlist,
+            playlistSongs = playlistSongs,
+            viewModel = viewModel,
+            settings = settings,
+            onDismiss = { showAddSongsDialog = false }
+        )
+    }
+
+    if (showRenameDialog) {
+        AlertDialog(
+            onDismissRequest = { showRenameDialog = false },
+            title = { Text("Rename Playlist", color = themeText) },
+            text = {
+                TextField(
+                    value = renameValue,
+                    onValueChange = { renameValue = it },
+                    singleLine = true,
+                    colors = TextFieldDefaults.colors(
+                        focusedTextColor = themeText,
+                        unfocusedTextColor = themeText,
+                        focusedContainerColor = Color.White.copy(alpha = 0.05f),
+                        unfocusedContainerColor = Color.White.copy(alpha = 0.05f)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (renameValue.isNotBlank()) {
+                            viewModel.renamePlaylist(playlist, renameValue.trim())
+                            showRenameDialog = false
+                        }
+                    }
+                ) {
+                    Text("Save", color = accentColor, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRenameDialog = false }) {
+                    Text("Cancel", color = themeTextMuted)
+                }
+            },
+            containerColor = themeDialogBg
+        )
+    }
+
+    if (showDeleteConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmDialog = false },
+            title = { Text("Delete Playlist", color = themeText) },
+            text = { Text("Are you sure you want to delete '${playlist.name}'? This cannot be undone.", color = themeTextMuted) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deletePlaylist(playlist)
+                        showDeleteConfirmDialog = false
+                        onBack()
+                    }
+                ) {
+                    Text("Delete", color = Color.Red, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmDialog = false }) {
+                    Text("Cancel", color = themeTextMuted)
+                }
+            },
+            containerColor = themeDialogBg
+        )
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp)
+    ) {
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Top Header
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = themeText)
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Playlist Details",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = themeText
+                )
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                IconButton(onClick = { showRenameDialog = true }) {
+                    Icon(Icons.Default.Edit, contentDescription = "Rename", tint = themeTextMuted)
+                }
+                IconButton(onClick = { showDeleteConfirmDialog = true }) {
+                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Red.copy(alpha = 0.7f))
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Playlist Summary Card
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(themeCardBg)
+                .border(1.dp, themeCardBorder, RoundedCornerShape(16.dp))
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(accentColor.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.List,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column {
+                Text(
+                    text = playlist.name,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = themeText,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "${playlistSongs.size} songs • $totalDurationText",
+                    fontSize = 12.sp,
+                    color = themeTextMuted,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Quick add action header
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Tracks",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = themeText
+            )
+            if (playlistSongs.isNotEmpty()) {
+                Button(
+                    onClick = { showAddSongsDialog = true },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = accentColor.copy(alpha = 0.15f),
+                        contentColor = accentColor
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Add", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (playlistSongs.isEmpty()) {
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                EmptyStatePlaceholder(
+                    title = "This Playlist is empty",
+                    subtitle = "Curate your perfect vibe by adding tracks from your library.",
+                    icon = Icons.AutoMirrored.Filled.List,
+                    actionText = "Add Songs",
+                    onAction = { showAddSongsDialog = true }
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(bottom = 120.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(playlistSongs, key = { it.id }) { song ->
+                    val onPlay = remember(song, playlistSongs) { { viewModel.playSong(song, playlistSongs) } }
+                    val onFavoriteToggle = remember(song.id, song.isFavorite) { { viewModel.toggleFavorite(song.id, !song.isFavorite) } }
+                    val onRemove = remember(playlist.id, song.id) {
+                        {
+                            viewModel.removeSongFromPlaylist(playlist.id, song.id)
+                        }
+                    }
+                    SongListItem(
+                        song = song,
+                        settings = settings,
+                        onPlay = onPlay,
+                        onFavoriteToggle = onFavoriteToggle,
+                        viewModel = viewModel,
+                        onRemoveFromPlaylist = onRemove
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun FolderDetailsScreen(
+    folderName: String,
+    viewModel: MainViewModel,
+    onBack: () -> Unit
+) {
+    val songs by viewModel.allSongs.collectAsStateWithLifecycle(initialValue = emptyList())
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val accentColor = Accents[settings.accentColorIndex]
+
+    val folderSongs = remember(songs, folderName) {
+        songs.filter { it.folderName == folderName }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp)
+    ) {
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Top Header
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = themeText)
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Folder Details",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = themeText
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Folder Summary Card
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(themeCardBg)
+                .border(1.dp, themeCardBorder, RoundedCornerShape(16.dp))
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(accentColor.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Folder,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column {
+                Text(
+                    text = folderName,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = themeText,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "${folderSongs.size} audio files",
+                    fontSize = 12.sp,
+                    color = themeTextMuted,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Files",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = themeText
+            )
+            if (folderSongs.isNotEmpty()) {
+                Button(
+                    onClick = { viewModel.playQueue(folderSongs, 0) },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = accentColor.copy(alpha = 0.15f),
+                        contentColor = accentColor
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Play All", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (folderSongs.isEmpty()) {
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                EmptyStatePlaceholder(
+                    title = "No music found",
+                    subtitle = "This folder contains no supported audio tracks.",
+                    icon = Icons.Default.FolderOpen
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(bottom = 120.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(folderSongs, key = { it.id }) { song ->
+                    val onPlay = remember(song, folderSongs) { { viewModel.playSong(song, folderSongs) } }
+                    val onFavoriteToggle = remember(song.id, song.isFavorite) { { viewModel.toggleFavorite(song.id, !song.isFavorite) } }
+                    SongListItem(
+                        song = song,
+                        settings = settings,
+                        onPlay = onPlay,
+                        onFavoriteToggle = onFavoriteToggle,
+                        viewModel = viewModel
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -3177,7 +3730,8 @@ fun SongListItem(
     settings: BeatFlowSettings,
     onPlay: () -> Unit,
     onFavoriteToggle: () -> Unit,
-    viewModel: MainViewModel
+    viewModel: MainViewModel,
+    onRemoveFromPlaylist: (() -> Unit)? = null
 ) {
     var expandedMenu by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
@@ -3341,6 +3895,24 @@ fun SongListItem(
                         )
                     }
                 )
+
+                if (onRemoveFromPlaylist != null) {
+                    DropdownMenuItem(
+                        text = { Text("Remove from Playlist", color = Color.Red, fontSize = 13.sp) },
+                        onClick = {
+                            onRemoveFromPlaylist()
+                            expandedMenu = false
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = null,
+                                tint = Color.Red,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    )
+                }
 
                 DropdownMenuItem(
                     text = { Text("Song Info", color = itemText, fontSize = 13.sp) },
@@ -3532,7 +4104,8 @@ fun PlaylistDialog(
 fun PlaylistListItem(
     playlist: Playlist,
     settings: BeatFlowSettings,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -3540,11 +4113,12 @@ fun PlaylistListItem(
             .clip(RoundedCornerShape(12.dp))
             .background(themeCardBg)
             .border(1.dp, themeCardBorder, RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.List,
                 contentDescription = null,
@@ -3568,7 +4142,8 @@ fun FolderListItem(
     name: String,
     songsCount: Int,
     settings: BeatFlowSettings,
-    onPlayFolder: () -> Unit
+    onPlayFolder: () -> Unit,
+    onClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -3576,12 +4151,12 @@ fun FolderListItem(
             .clip(RoundedCornerShape(12.dp))
             .background(themeCardBg)
             .border(1.dp, themeCardBorder, RoundedCornerShape(12.dp))
-            .clickable(onClick = onPlayFolder)
+            .clickable(onClick = onClick)
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
             Icon(
                 imageVector = Icons.Default.Folder,
                 contentDescription = null,
@@ -3594,12 +4169,14 @@ fun FolderListItem(
                 Text("$songsCount tracks inside", color = themeTextFaint, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
             }
         }
-        Icon(
-            imageVector = Icons.Default.PlayArrow,
-            contentDescription = "Play Folder",
-            tint = Accents[settings.accentColorIndex],
-            modifier = Modifier.size(20.dp)
-        )
+        IconButton(onClick = onPlayFolder) {
+            Icon(
+                imageVector = Icons.Default.PlayArrow,
+                contentDescription = "Play Folder",
+                tint = Accents[settings.accentColorIndex],
+                modifier = Modifier.size(20.dp)
+            )
+        }
     }
 }
 
