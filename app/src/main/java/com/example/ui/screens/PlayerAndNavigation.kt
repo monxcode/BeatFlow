@@ -89,15 +89,15 @@ fun MainContainerScreen(
 
     val accentColor = Accents[settings.accentColorIndex]
     val context = LocalContext.current
+    val currentArtworkModel = rememberArtworkModel(currentSong)
     var dominantColorState by remember(currentSong) { mutableStateOf<Color?>(null) }
     
-    LaunchedEffect(currentSong, accentColor) {
+    LaunchedEffect(currentArtworkModel, accentColor) {
         val song = currentSong
-        if (song != null && !song.artworkUri.isNullOrEmpty()) {
+        if (song != null && currentArtworkModel != null) {
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 val resolvedColor = try {
-                    val uri = Uri.parse(song.artworkUri)
-                    val bitmap = loadDownscaledBitmap(context, uri)
+                    val bitmap = loadDownscaledBitmapFromModel(context, currentArtworkModel)
                     if (bitmap != null) {
                         val scaled = Bitmap.createScaledBitmap(bitmap, 1, 1, true)
                         val colorVal = scaled.getPixel(0, 0)
@@ -123,7 +123,7 @@ fun MainContainerScreen(
                 dominantColorState = resolvedColor
             }
         } else {
-            dominantColorState = getDynamicAccentColor(song, accentColor)
+            dominantColorState = null
         }
     }
 
@@ -476,9 +476,10 @@ fun MiniPlayer(
                     tint = artworkColor,
                     modifier = Modifier.size(20.dp)
                 )
-                if (!song.artworkUri.isNullOrEmpty()) {
+                val artworkModel = rememberArtworkModel(song)
+                if (artworkModel != null) {
                     AsyncImage(
-                        model = song.artworkUri,
+                        model = artworkModel,
                         contentDescription = "Album Art",
                         modifier = Modifier.fillMaxSize(),
                         contentScale = androidx.compose.ui.layout.ContentScale.Crop
@@ -693,9 +694,10 @@ fun FullPlayerScreen(
                         tint = artworkColor,
                         modifier = Modifier.size(110.dp)
                     )
-                    if (currentSong != null && !currentSong!!.artworkUri.isNullOrEmpty()) {
+                    val artworkModel = rememberArtworkModel(currentSong)
+                    if (artworkModel != null) {
                         AsyncImage(
-                            model = currentSong!!.artworkUri,
+                            model = artworkModel,
                             contentDescription = "Album Art",
                             modifier = Modifier.fillMaxSize(),
                             contentScale = androidx.compose.ui.layout.ContentScale.Crop

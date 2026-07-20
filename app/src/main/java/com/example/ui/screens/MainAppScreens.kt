@@ -1888,6 +1888,36 @@ fun LibraryTabButton(text: String, isActive: Boolean, accentColor: Color, onClic
     }
 }
 
+fun loadDownscaledBitmapFromModel(context: Context, model: Any?): Bitmap? {
+    if (model == null) return null
+    return try {
+        if (model is ByteArray) {
+            val options = BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+            }
+            BitmapFactory.decodeByteArray(model, 0, model.size, options)
+            var sampleSize = 1
+            while (options.outWidth / sampleSize > 300 || options.outHeight / sampleSize > 300) {
+                sampleSize *= 2
+            }
+            val decodeOptions = BitmapFactory.Options().apply {
+                inSampleSize = sampleSize
+            }
+            BitmapFactory.decodeByteArray(model, 0, model.size, decodeOptions)
+        } else if (model is String) {
+            val uri = Uri.parse(model)
+            loadDownscaledBitmap(context, uri)
+        } else if (model is Uri) {
+            loadDownscaledBitmap(context, model)
+        } else {
+            null
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+        null
+    }
+}
+
 fun loadDownscaledBitmap(context: Context, uri: Uri): Bitmap? {
     return try {
         val contentResolver = context.contentResolver
@@ -3555,8 +3585,80 @@ fun LatestTrackCard(
     }
 }
 
+object ArtworkResolver {
+    val NONE = Any()
+    val cache = java.util.concurrent.ConcurrentHashMap<Long, Any>()
+
+    fun getCached(songId: Long): Any? {
+        return cache[songId]
+    }
+
+    fun putCached(songId: Long, value: Any) {
+        cache[songId] = value
+    }
+
+    fun clearCache() {
+        cache.clear()
+    }
+}
+
+@Composable
+fun rememberArtworkModel(song: Song?): Any? {
+    if (song == null) return null
+    var model by remember(song.id, song.artworkUri) { mutableStateOf<Any?>(null) }
+
+    LaunchedEffect(song.id, song.artworkUri) {
+        if (!song.artworkUri.isNullOrEmpty()) {
+            if (song.artworkUri == "removed") {
+                model = null
+            } else {
+                model = song.artworkUri
+            }
+            return@LaunchedEffect
+        }
+        
+        val cached = ArtworkResolver.getCached(song.id)
+        if (cached != null) {
+            model = if (cached === ArtworkResolver.NONE) null else cached
+            return@LaunchedEffect
+        }
+
+        val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val file = java.io.File(song.path)
+                if (file.exists()) {
+                    val retriever = android.media.MediaMetadataRetriever()
+                    retriever.setDataSource(song.path)
+                    val picture = retriever.embeddedPicture
+                    retriever.release()
+                    if (picture != null) {
+                        ArtworkResolver.putCached(song.id, picture)
+                        picture
+                    } else {
+                        ArtworkResolver.putCached(song.id, ArtworkResolver.NONE)
+                        null
+                    }
+                } else {
+                    ArtworkResolver.putCached(song.id, ArtworkResolver.NONE)
+                    null
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                ArtworkResolver.putCached(song.id, ArtworkResolver.NONE)
+                null
+            }
+        }
+        model = result
+    }
+
+    return model
+}
+
 fun getSongArtworkModel(song: Song): Any? {
     if (!song.artworkUri.isNullOrEmpty()) {
+        if (song.artworkUri == "removed") {
+            return null
+        }
         return song.artworkUri
     }
     try {
@@ -3609,7 +3711,7 @@ fun RenameDialog(
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     var isArtworkRemoved by remember { mutableStateOf(false) }
 
-    val initialArtworkModel = remember(song) { getSongArtworkModel(song) }
+    val initialArtworkModel = rememberArtworkModel(song)
 
     val previewModel = remember(selectedImageUri, isArtworkRemoved, initialArtworkModel) {
         when {
@@ -3774,7 +3876,7 @@ fun RenameDialog(
                                         e.printStackTrace()
                                     }
                                 }
-                                null
+                                "removed"
                             }
                             selectedImageUri != null -> {
                                 // Clean up old cached file if there was one
@@ -3800,6 +3902,7 @@ fun RenameDialog(
                             artist = tempArtist.trim(),
                             artworkUri = finalArtworkUri
                         )
+                        ArtworkResolver.cache.remove(song.id)
                         viewModel.updateSong(updatedSong)
                         android.widget.Toast.makeText(context, "Music updated successfully", android.widget.Toast.LENGTH_SHORT).show()
                         onDismiss()
@@ -4003,9 +4106,10 @@ fun SongListItem(
                 tint = Color.White.copy(alpha = 0.8f),
                 modifier = Modifier.size(20.dp)
             )
-            if (!song.artworkUri.isNullOrEmpty()) {
+            val artworkModel = rememberArtworkModel(song)
+            if (artworkModel != null) {
                 AsyncImage(
-                    model = song.artworkUri,
+                    model = artworkModel,
                     contentDescription = "Album Art",
                     modifier = Modifier.fillMaxSize(),
                     contentScale = androidx.compose.ui.layout.ContentScale.Crop
