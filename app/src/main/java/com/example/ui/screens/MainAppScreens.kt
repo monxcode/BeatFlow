@@ -36,6 +36,8 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -3553,6 +3555,46 @@ fun LatestTrackCard(
     }
 }
 
+fun getSongArtworkModel(song: Song): Any? {
+    if (!song.artworkUri.isNullOrEmpty()) {
+        return song.artworkUri
+    }
+    try {
+        val file = java.io.File(song.path)
+        if (file.exists()) {
+            val retriever = android.media.MediaMetadataRetriever()
+            retriever.setDataSource(song.path)
+            val picture = retriever.embeddedPicture
+            retriever.release()
+            if (picture != null) {
+                return picture
+            }
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+    return null
+}
+
+fun saveImageToInternalStorage(context: Context, uri: Uri, fileName: String): String? {
+    return try {
+        val directory = java.io.File(context.filesDir, "artworks")
+        if (!directory.exists()) {
+            directory.mkdirs()
+        }
+        val file = java.io.File(directory, fileName)
+        context.contentResolver.openInputStream(uri)?.use { inputStream ->
+            java.io.FileOutputStream(file).use { outputStream ->
+                inputStream.copyTo(outputStream)
+            }
+        }
+        "file://${file.absolutePath}"
+    } catch (e: Exception) {
+        e.printStackTrace()
+        null
+    }
+}
+
 @Composable
 fun RenameDialog(
     song: Song,
@@ -3563,16 +3605,36 @@ fun RenameDialog(
     val context = LocalContext.current
     var tempTitle by remember { mutableStateOf(song.title) }
     var tempArtist by remember { mutableStateOf(song.artist) }
+    
+    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    var isArtworkRemoved by remember { mutableStateOf(false) }
+
+    val initialArtworkModel = remember(song) { getSongArtworkModel(song) }
+
+    val previewModel = remember(selectedImageUri, isArtworkRemoved, initialArtworkModel) {
+        when {
+            isArtworkRemoved -> null
+            selectedImageUri != null -> selectedImageUri
+            else -> initialArtworkModel
+        }
+    }
+
     val isDark = LocalIsDarkMode.current
     val itemText = if (isDark) Color.White else Color(0xFF121212)
     val itemTextMuted = if (isDark) Color.White.copy(alpha = 0.6f) else Color(0xFF121212).copy(alpha = 0.6f)
     val itemDialogBg = if (isDark) Color(0xFF1E1E1E) else Color(0xFFFFFFFF)
+    val scrollState = rememberScrollState()
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Rename Song", color = itemText, fontWeight = FontWeight.Bold) },
+        title = { Text("Edit Music Info", color = itemText, fontWeight = FontWeight.Bold) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(scrollState),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
                 OutlinedTextField(
                     value = tempTitle,
                     onValueChange = { tempTitle = it },
@@ -3586,6 +3648,7 @@ fun RenameDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+                
                 OutlinedTextField(
                     value = tempArtist,
                     onValueChange = { tempArtist = it },
@@ -3599,14 +3662,146 @@ fun RenameDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                // Artwork section title
+                Text(
+                    text = "Artwork",
+                    color = itemText,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    val gradientIdx = remember(song.id) { (song.id.toInt() % ProfessionalPolishGradients.size).let { if (it < 0) -it else it } }
+                    
+                    // Artwork preview container
+                    Box(
+                        modifier = Modifier
+                            .size(90.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(ProfessionalPolishGradients[gradientIdx])
+                            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MusicNote,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.6f),
+                            modifier = Modifier.size(36.dp)
+                        )
+                        if (previewModel != null) {
+                            AsyncImage(
+                                model = previewModel,
+                                contentDescription = "Artwork Preview",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                        }
+                    }
+
+                    // Artwork action buttons
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        val galleryLauncher = rememberLauncherForActivityResult(
+                            contract = ActivityResultContracts.GetContent()
+                        ) { uri: Uri? ->
+                            if (uri != null) {
+                                selectedImageUri = uri
+                                isArtworkRemoved = false
+                            }
+                        }
+
+                        Button(
+                            onClick = { galleryLauncher.launch("image/*") },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Accents[settings.accentColorIndex].copy(alpha = 0.15f),
+                                contentColor = Accents[settings.accentColorIndex]
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Change", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+
+                        if (previewModel != null) {
+                            OutlinedButton(
+                                onClick = {
+                                    selectedImageUri = null
+                                    isArtworkRemoved = true
+                                },
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = Color.Red.copy(alpha = 0.8f)
+                                ),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color.Red.copy(alpha = 0.2f)),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Remove", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
             TextButton(
                 onClick = {
                     if (tempTitle.isNotBlank() && tempArtist.isNotBlank()) {
-                        viewModel.renameSong(song, tempTitle.trim(), tempArtist.trim())
-                        android.widget.Toast.makeText(context, "Song renamed successfully", android.widget.Toast.LENGTH_SHORT).show()
+                        val finalArtworkUri = when {
+                            isArtworkRemoved -> {
+                                // Clean up old cached file if there was one
+                                if (!song.artworkUri.isNullOrEmpty() && song.artworkUri.startsWith("file://")) {
+                                    try {
+                                        val oldPath = song.artworkUri.substring(7)
+                                        val oldFile = java.io.File(oldPath)
+                                        if (oldFile.exists() && oldFile.absolutePath.contains(context.filesDir.absolutePath)) {
+                                            oldFile.delete()
+                                        }
+                                    } catch (e: Exception) {
+                                        e.printStackTrace()
+                                    }
+                                }
+                                null
+                            }
+                            selectedImageUri != null -> {
+                                // Clean up old cached file if there was one
+                                if (!song.artworkUri.isNullOrEmpty() && song.artworkUri.startsWith("file://")) {
+                                    try {
+                                        val oldPath = song.artworkUri.substring(7)
+                                        val oldFile = java.io.File(oldPath)
+                                        if (oldFile.exists() && oldFile.absolutePath.contains(context.filesDir.absolutePath)) {
+                                            oldFile.delete()
+                                        }
+                                    } catch (e: Exception) {
+                                        e.printStackTrace()
+                                    }
+                                }
+                                val fileName = "artwork_${song.id}_${System.currentTimeMillis()}.jpg"
+                                saveImageToInternalStorage(context, selectedImageUri!!, fileName)
+                            }
+                            else -> song.artworkUri // Keep original
+                        }
+                        
+                        val updatedSong = song.copy(
+                            title = tempTitle.trim(),
+                            artist = tempArtist.trim(),
+                            artworkUri = finalArtworkUri
+                        )
+                        viewModel.updateSong(updatedSong)
+                        android.widget.Toast.makeText(context, "Music updated successfully", android.widget.Toast.LENGTH_SHORT).show()
                         onDismiss()
                     }
                 }

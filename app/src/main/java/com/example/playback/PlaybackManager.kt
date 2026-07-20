@@ -547,4 +547,15 @@ object PlaybackManager {
         
         return newFav
     }
+
+    fun updateSongInCacheAndQueue(song: Song) {
+        songCache[song.id] = song
+        if (_currentSong.value?.id == song.id) {
+            _currentSong.value = song
+        }
+        val currentQueue = _queue.value.map {
+            if (it.id == song.id) song else it
+        }
+        _queue.value = currentQueue
+    }
 }

@@ -355,6 +355,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun updateSong(song: Song) {
         viewModelScope.launch {
             repository.updateSong(song)
+            com.example.playback.PlaybackManager.updateSongInCacheAndQueue(song)
         }
     }
 
