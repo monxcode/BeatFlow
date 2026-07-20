@@ -30,6 +30,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -40,7 +41,10 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.media3.common.Player
+import android.graphics.Bitmap
+import android.net.Uri
 import com.example.data.Song
 import com.example.ui.MainViewModel
 import com.example.ui.components.GlassCard
@@ -51,6 +55,21 @@ import com.example.ui.theme.NeonGreen
 import com.example.ui.theme.GlassDarkSurface
 import com.example.ui.theme.GlassLightSurface
 import kotlinx.coroutines.delay
+
+fun getDynamicAccentColor(song: Song?, defaultAccent: Color): Color {
+    if (song == null || song.artworkUri.isNullOrEmpty()) {
+        return defaultAccent
+    }
+    val gradientIdx = (song.id.toInt() % ProfessionalPolishGradients.size).let { if (it < 0) -it else it }
+    return when (gradientIdx) {
+        0 -> Color(0xFFD0BCFF) // Violet/Lavender dominant
+        1 -> Color(0xFFFF2E93) // HotPink dominant
+        2 -> Color(0xFF00E5FF) // ElectricBlue dominant
+        3 -> Color(0xFFD0BCFF) // Purple/Lavender dominant
+        4 -> Color(0xFFD0BCFF) // Lavender dominant
+        else -> defaultAccent
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,6 +88,51 @@ fun MainContainerScreen(
     var showQueueSheet by remember { mutableStateOf(false) }
 
     val accentColor = Accents[settings.accentColorIndex]
+    val context = LocalContext.current
+    var dominantColorState by remember(currentSong) { mutableStateOf<Color?>(null) }
+    
+    LaunchedEffect(currentSong, accentColor) {
+        val song = currentSong
+        if (song != null && !song.artworkUri.isNullOrEmpty()) {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                val resolvedColor = try {
+                    val uri = Uri.parse(song.artworkUri)
+                    val bitmap = loadDownscaledBitmap(context, uri)
+                    if (bitmap != null) {
+                        val scaled = Bitmap.createScaledBitmap(bitmap, 1, 1, true)
+                        val colorVal = scaled.getPixel(0, 0)
+                        scaled.recycle()
+                        val col = Color(colorVal)
+                        if (col.luminance() < 0.15f) {
+                            val baseDynamic = getDynamicAccentColor(song, accentColor)
+                            Color(
+                                red = (col.red + baseDynamic.red) / 2f,
+                                green = (col.green + baseDynamic.green) / 2f,
+                                blue = (col.blue + baseDynamic.blue) / 2f,
+                                alpha = 1f
+                            )
+                        } else {
+                            col
+                        }
+                    } else {
+                        getDynamicAccentColor(song, accentColor)
+                    }
+                } catch (e: Exception) {
+                    getDynamicAccentColor(song, accentColor)
+                }
+                dominantColorState = resolvedColor
+            }
+        } else {
+            dominantColorState = getDynamicAccentColor(song, accentColor)
+        }
+    }
+
+    val resolvedArtworkColor = dominantColorState ?: getDynamicAccentColor(currentSong, accentColor)
+    val animatedArtworkColor by animateColorAsState(
+        targetValue = resolvedArtworkColor,
+        animationSpec = tween(durationMillis = 800),
+        label = "animatedArtworkColor"
+    )
 
     val showUnifiedPlayer = currentSong != null && !isPlayerExpanded
 
@@ -117,6 +181,7 @@ fun MainContainerScreen(
                                     song = currentSong!!,
                                     isPlaying = isPlaying,
                                     accentColor = accentColor,
+                                    artworkColor = animatedArtworkColor,
                                     isGlassEnabled = settings.isGlassEnabled,
                                     isDark = settings.isDarkMode,
                                     viewModel = viewModel,
@@ -232,7 +297,14 @@ fun MainContainerScreen(
                 label = "TabContentTransition"
             ) { tab ->
                 when (tab) {
-                    0 -> HomeScreenContent(viewModel, onNavigateToProfile)
+                    0 -> HomeScreenContent(
+                        viewModel = viewModel,
+                        onNavigateToProfile = onNavigateToProfile,
+                        onNavigateToScan = {
+                            activeTab = 3
+                            viewModel.setShowScanOverlay(true)
+                        }
+                    )
                     1 -> FavoritesScreenContent(viewModel)
                     2 -> PlaylistsScreenContent(viewModel)
                     3 -> SettingsScreenContent(viewModel)
@@ -250,6 +322,7 @@ fun MainContainerScreen(
         FullPlayerScreen(
             viewModel = viewModel,
             accentColor = accentColor,
+            artworkColor = animatedArtworkColor,
             onClose = { isPlayerExpanded = false },
             onOpenSleepTimer = { showSleepTimerSheet = true },
             onOpenQueue = { showQueueSheet = true }
@@ -347,10 +420,10 @@ fun CenterCirclePlayerButton(
         }
 
         // Inner play/artwork
-        val iconColor = if (accentColor == com.example.ui.theme.VioletLavender) {
+        val iconColor = if (accentColor.luminance() > 0.5f) {
             com.example.ui.theme.DeepViolet
         } else {
-            Color.Black
+            Color.White
         }
 
         Icon(
@@ -368,6 +441,7 @@ fun MiniPlayer(
     song: Song,
     isPlaying: Boolean,
     accentColor: Color,
+    artworkColor: Color = accentColor,
     isGlassEnabled: Boolean,
     isDark: Boolean,
     viewModel: MainViewModel,
@@ -392,14 +466,14 @@ fun MiniPlayer(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(accentColor.copy(alpha = 0.15f))
+                    .background(artworkColor.copy(alpha = 0.15f))
                     .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(10.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.MusicNote,
                     contentDescription = null,
-                    tint = accentColor,
+                    tint = artworkColor,
                     modifier = Modifier.size(20.dp)
                 )
                 if (!song.artworkUri.isNullOrEmpty()) {
@@ -515,6 +589,7 @@ fun MiniPlayer(
 fun FullPlayerScreen(
     viewModel: MainViewModel,
     accentColor: Color,
+    artworkColor: Color,
     onClose: () -> Unit,
     onOpenSleepTimer: () -> Unit,
     onOpenQueue: () -> Unit
@@ -544,7 +619,15 @@ fun FullPlayerScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black) // Dark glass backing canvas
+            .background(Color.Black) // Restore original premium dark AMOLED background exactly as it was before
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        event.changes.forEach { it.consume() }
+                    }
+                }
+            }
     ) {
         // Organic glowing backlight blooms matching active track
         Box(
@@ -594,11 +677,11 @@ fun FullPlayerScreen(
                 Box(
                     modifier = Modifier
                         .size(270.dp)
-                        .glow(accentColor, radius = 60.dp, alpha = 0.35f)
+                        .glow(artworkColor, radius = 60.dp, alpha = 0.35f)
                         .clip(RoundedCornerShape(32.dp))
                         .background(
                             Brush.linearGradient(
-                                listOf(accentColor.copy(alpha = 0.2f), accentColor.copy(alpha = 0.05f))
+                                listOf(artworkColor.copy(alpha = 0.2f), artworkColor.copy(alpha = 0.05f))
                             )
                         )
                         .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(32.dp)),
@@ -607,7 +690,7 @@ fun FullPlayerScreen(
                     Icon(
                         imageVector = Icons.Default.MusicNote,
                         contentDescription = null,
-                        tint = accentColor,
+                        tint = artworkColor,
                         modifier = Modifier.size(110.dp)
                     )
                     if (currentSong != null && !currentSong!!.artworkUri.isNullOrEmpty()) {
@@ -698,6 +781,7 @@ fun FullPlayerScreen(
                 }
 
                 // Pulsing central Play/Pause key
+                val playIconColor = if (accentColor.luminance() > 0.5f) Color.Black else Color.White
                 Box(
                     modifier = Modifier
                         .size(76.dp)
@@ -710,7 +794,7 @@ fun FullPlayerScreen(
                     Icon(
                         imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                         contentDescription = "Play/Pause",
-                        tint = Color.Black,
+                        tint = playIconColor,
                         modifier = Modifier.size(40.dp)
                     )
                 }
@@ -780,6 +864,17 @@ fun FullPlayerScreen(
 }
 
 // SLEEP TIMER BOTTOM SHEET SELECTOR
+private fun formatRemainingTime(seconds: Long): String {
+    val h = seconds / 3600
+    val m = (seconds % 3600) / 60
+    val s = seconds % 60
+    return if (h > 0) {
+        String.format("%dh %02dm %02ds", h, m, s)
+    } else {
+        String.format("%dm %02ds", m, s)
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SleepTimerBottomSheet(
@@ -787,8 +882,12 @@ fun SleepTimerBottomSheet(
     accentColor: Color,
     onDismiss: () -> Unit
 ) {
-    var customTimeInput by remember { mutableStateOf("") }
+    var isCustomSelected by remember { mutableStateOf(false) }
+    var hoursInput by remember { mutableStateOf("") }
+    var minutesInput by remember { mutableStateOf("") }
+    
     val sleepRemaining by viewModel.sleepTimerRemainingSec.collectAsStateWithLifecycle()
+    val finishSong by viewModel.finishSongOnTimerEnd.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val isDark = settings.isDarkMode
     val bTextColor = if (isDark) Color.White else Color(0xFF121212)
@@ -799,45 +898,110 @@ fun SleepTimerBottomSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = if (isDark) Color(0xFF1E1E1E) else Color.White,
+        containerColor = if (isDark) Color(0xFF121212) else Color.White,
         contentColor = bTextColor
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(24.dp),
+                .navigationBarsPadding()
+                .padding(horizontal = 24.dp)
+                .padding(top = 8.dp, bottom = 24.dp),
             horizontalAlignment = Alignment.Start,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
                 text = "Configure Sleep Timer",
-                fontSize = 18.sp,
+                fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = bTextColor
             )
 
             if (sleepRemaining > 0) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.Red.copy(alpha = 0.05f))
+                        .border(1.dp, Color.Red.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                        .padding(12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Active Timer Running:", fontSize = 14.sp, color = bSubTextColor)
+                    Column {
+                        Text("Active Timer Running", fontSize = 12.sp, color = bMutedColor)
+                        Text(
+                            text = formatRemainingTime(sleepRemaining),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Red
+                        )
+                    }
                     Button(
                         onClick = {
                             viewModel.cancelSleepTimer()
                             onDismiss()
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = 0.15f), contentColor = Color.Red)
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Red.copy(alpha = 0.15f),
+                            contentColor = Color.Red
+                        ),
+                        shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text("Cancel Timer", fontWeight = FontWeight.Bold)
+                        Text("Cancel", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
                 }
-                Spacer(modifier = Modifier.height(12.dp))
             }
 
-            // Selection options
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Finish the Song Toggle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(bContainerColor)
+                    .clickable { viewModel.setFinishSongOnTimerEnd(!finishSong) }
+                    .padding(14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Finish the song playing when the timer ends",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = bTextColor
+                    )
+                    Text(
+                        text = "Let the current track finish before stopping playback",
+                        fontSize = 11.sp,
+                        color = bMutedColor
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Switch(
+                    checked = finishSong,
+                    onCheckedChange = { viewModel.setFinishSongOnTimerEnd(it) },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = if (isDark) Color.Black else Color.White,
+                        checkedTrackColor = accentColor,
+                        uncheckedThumbColor = bMutedColor,
+                        uncheckedTrackColor = bContainerColor
+                    )
+                )
+            }
+
+            Text(
+                text = "Select preset duration:",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                color = bMutedColor
+            )
+
+            // Preset options
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Box(modifier = Modifier.weight(1f)) {
                     TimerChip("15 Min", onClick = { viewModel.startSleepTimer(15); onDismiss() })
                 }
@@ -852,39 +1016,127 @@ fun SleepTimerBottomSheet(
                 }
             }
 
-            // Custom timer row
-            Text("Or set custom duration (in minutes):", fontSize = 12.sp, color = bMutedColor)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            // Custom toggle option
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (isCustomSelected) accentColor.copy(alpha = 0.1f) else bContainerColor)
+                    .border(
+                        1.dp,
+                        if (isCustomSelected) accentColor.copy(alpha = 0.3f) else Color.Transparent,
+                        RoundedCornerShape(12.dp)
+                    )
+                    .clickable { isCustomSelected = !isCustomSelected }
+                    .padding(vertical = 12.dp),
+                contentAlignment = Alignment.Center
             ) {
-                TextField(
-                    value = customTimeInput,
-                    onValueChange = { customTimeInput = it },
-                    placeholder = { Text("e.g. 25", color = bPlaceholderColor) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    colors = TextFieldDefaults.colors(
-                        focusedTextColor = bTextColor,
-                        unfocusedTextColor = bTextColor,
-                        focusedContainerColor = bContainerColor,
-                        unfocusedContainerColor = bContainerColor
-                    ),
-                    modifier = Modifier.weight(1f)
-                )
-
-                Button(
-                    onClick = {
-                        val minutes = customTimeInput.toIntOrNull()
-                        if (minutes != null && minutes > 0) {
-                            viewModel.startSleepTimer(minutes)
-                            onDismiss()
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = accentColor, contentColor = Color.Black)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text("Set", fontWeight = FontWeight.Bold)
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = null,
+                        tint = if (isCustomSelected) accentColor else bTextColor,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = "Custom",
+                        fontWeight = FontWeight.Bold,
+                        color = if (isCustomSelected) accentColor else bTextColor,
+                        fontSize = 14.sp
+                    )
+                }
+            }
+
+            // Custom selection expansion
+            AnimatedVisibility(
+                visible = isCustomSelected,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Hours Input
+                        TextField(
+                            value = hoursInput,
+                            onValueChange = { input ->
+                                if (input.all { it.isDigit() } && input.length <= 2) {
+                                    hoursInput = input
+                                }
+                            },
+                            label = { Text("H (Hours)", color = bPlaceholderColor, fontSize = 10.sp) },
+                            placeholder = { Text("0", color = bPlaceholderColor) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            colors = TextFieldDefaults.colors(
+                                focusedTextColor = bTextColor,
+                                unfocusedTextColor = bTextColor,
+                                focusedContainerColor = bContainerColor,
+                                unfocusedContainerColor = bContainerColor,
+                                focusedIndicatorColor = accentColor,
+                                unfocusedIndicatorColor = Color.Transparent
+                            ),
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        // Minutes Input
+                        TextField(
+                            value = minutesInput,
+                            onValueChange = { input ->
+                                if (input.all { it.isDigit() } && input.length <= 3) {
+                                    minutesInput = input
+                                }
+                            },
+                            label = { Text("M (Minutes)", color = bPlaceholderColor, fontSize = 10.sp) },
+                            placeholder = { Text("0", color = bPlaceholderColor) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            colors = TextFieldDefaults.colors(
+                                focusedTextColor = bTextColor,
+                                unfocusedTextColor = bTextColor,
+                                focusedContainerColor = bContainerColor,
+                                unfocusedContainerColor = bContainerColor,
+                                focusedIndicatorColor = accentColor,
+                                unfocusedIndicatorColor = Color.Transparent
+                            ),
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        // Set Button
+                        val hours = hoursInput.toIntOrNull() ?: 0
+                        val minutes = minutesInput.toIntOrNull() ?: 0
+                        val isValid = (hours > 0 || minutes > 0) && (hoursInput.isNotBlank() || minutesInput.isNotBlank())
+
+                        Button(
+                            onClick = {
+                                if (isValid) {
+                                    val totalSeconds = (hours * 3600L) + (minutes * 60L)
+                                    viewModel.startSleepTimerCustom(totalSeconds)
+                                    onDismiss()
+                                }
+                            },
+                            enabled = isValid,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = accentColor,
+                                contentColor = Color.Black,
+                                disabledContainerColor = bContainerColor,
+                                disabledContentColor = bMutedColor
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.height(56.dp)
+                        ) {
+                            Text("Set", fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             }
         }

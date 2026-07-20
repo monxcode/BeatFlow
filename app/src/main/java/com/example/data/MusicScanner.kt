@@ -324,4 +324,168 @@ object MusicScanner {
             }
         }
     }
+
+    suspend fun scanDocumentFolder(
+        context: Context,
+        songDao: SongDao,
+        folderUri: Uri,
+        settings: BeatFlowSettings,
+        onProgress: (percent: Int, filesFound: Int, status: String) -> Unit = { _, _, _ -> }
+    ): Int = withContext(Dispatchers.IO) {
+        Log.d(TAG, "Starting SAF Document Folder Music Scan: $folderUri")
+        var scannedCount = 0
+
+        onProgress(0, 0, "Initializing folder scanner...")
+
+        onProgress(5, 0, "Checking existing songs...")
+
+        val allExistingSongs = try {
+            songDao.getAllSongsSync()
+        } catch (e: Exception) {
+            emptyList()
+        }
+
+        val songsToInsert = mutableListOf<Song>()
+        val existingPaths = allExistingSongs.map { it.path.lowercase().trim() }.toMutableSet()
+        val existingKeys = allExistingSongs.map { getSongUniqueKey(it.title, it.artist) }.filter { it.isNotEmpty() }.toMutableSet()
+
+        try {
+            val rootDoc = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, folderUri)
+            if (rootDoc != null && rootDoc.exists() && rootDoc.isDirectory) {
+                onProgress(10, 0, "Scanning selected folder...")
+                var filesScanned = 0
+                scanDocumentFileDirectory(
+                    context,
+                    rootDoc,
+                    songDao,
+                    settings,
+                    existingPaths,
+                    existingKeys,
+                    songsToInsert,
+                    onProgress,
+                    10,
+                    90,
+                    {
+                        filesScanned++
+                        if (filesScanned % 5 == 0) {
+                            onProgress(
+                                (10 + (filesScanned * 2).coerceAtMost(80)),
+                                songsToInsert.size,
+                                "Scanning folder ($filesScanned files analyzed)..."
+                            )
+                        }
+                    }
+                )
+            } else {
+                Log.w(TAG, "Root document is not a valid directory or doesn't exist")
+                onProgress(100, 0, "Invalid folder or access denied.")
+                return@withContext 0
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error scanning SAF document folder", e)
+            onProgress(100, 0, "Scan error: ${e.localizedMessage}")
+            return@withContext 0
+        }
+
+        if (songsToInsert.isNotEmpty()) {
+            onProgress(95, songsToInsert.size, "Saving ${songsToInsert.size} new songs to local database...")
+            songDao.insertSongs(songsToInsert)
+            Log.d(TAG, "Successfully scanned and added ${songsToInsert.size} songs to Room Database.")
+        } else {
+            Log.d(TAG, "No new songs found that match filter criteria.")
+        }
+
+        onProgress(100, songsToInsert.size, "Scan Completed! Found ${songsToInsert.size} new tracks.")
+        songsToInsert.size
+    }
+
+    private suspend fun scanDocumentFileDirectory(
+        context: Context,
+        directory: androidx.documentfile.provider.DocumentFile,
+        songDao: SongDao,
+        settings: BeatFlowSettings,
+        existingPaths: MutableSet<String>,
+        existingKeys: MutableSet<String>,
+        songsToInsert: MutableList<Song>,
+        onProgress: (percent: Int, filesFound: Int, status: String) -> Unit,
+        progressStart: Int,
+        progressEnd: Int,
+        onIncrementCount: () -> Unit
+    ) {
+        val files = directory.listFiles()
+        val audioExtensions = setOf("mp3", "wav", "m4a", "flac", "ogg", "aac", "opus")
+        for (file in files) {
+            if (file.isDirectory) {
+                val name = file.name ?: ""
+                if (settings.ignoreHidden && name.startsWith(".")) continue
+                if (name.equals("Android", ignoreCase = true)) continue
+                scanDocumentFileDirectory(
+                    context, file, songDao, settings, existingPaths, existingKeys,
+                    songsToInsert, onProgress, progressStart, progressEnd, onIncrementCount
+                )
+            } else if (file.isFile) {
+                onIncrementCount()
+                val name = file.name ?: ""
+                val ext = name.substringAfterLast('.', "").lowercase()
+                if (ext in audioExtensions) {
+                    val path = file.uri.toString()
+                    val pathLower = path.lowercase().trim()
+                    if (existingPaths.contains(pathLower)) continue
+
+                    val sizeBytes = file.length()
+                    if (settings.ignoreSmallerThan100KB && sizeBytes < 100000) continue
+                    if (settings.ignoreHidden && name.startsWith(".")) continue
+
+                    var durationMs = 180000L // 3 mins fallback
+                    var songTitle = name.substringBeforeLast('.')
+                    var songArtist = "Local Artist"
+                    var songAlbum = "Local Album"
+                    try {
+                        val retriever = android.media.MediaMetadataRetriever()
+                        retriever.setDataSource(context, file.uri)
+                        val durationStr = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
+                        if (durationStr != null) {
+                            durationMs = durationStr.toLong()
+                        }
+                        val titleStr = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_TITLE)
+                        if (!titleStr.isNullOrBlank()) {
+                            songTitle = titleStr
+                        }
+                        val artistStr = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_ARTIST)
+                        if (!artistStr.isNullOrBlank()) {
+                            songArtist = artistStr
+                        }
+                        val albumStr = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_ALBUM)
+                        if (!albumStr.isNullOrBlank()) {
+                            songAlbum = albumStr
+                        }
+                        retriever.release()
+                    } catch (e: Exception) {
+                        // ignore
+                    }
+
+                    val key = getSongUniqueKey(songTitle, songArtist)
+                    if (existingKeys.contains(key)) continue
+
+                    if (settings.ignoreShorterThan1Min && durationMs < 60000) continue
+
+                    val song = Song(
+                        path = path,
+                        title = songTitle,
+                        artist = songArtist,
+                        album = songAlbum,
+                        genre = "Local Audio",
+                        duration = durationMs,
+                        size = sizeBytes,
+                        dateAdded = file.lastModified(),
+                        folderName = directory.name ?: "CustomFolder",
+                        artworkUri = null
+                    )
+                    songsToInsert.add(song)
+                    existingPaths.add(pathLower)
+                    existingKeys.add(key)
+                }
+            }
+        }
+    }
 }

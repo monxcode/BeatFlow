@@ -12,7 +12,7 @@ import androidx.room.RoomDatabase
         PlaylistSongCrossRef::class,
         ListeningStats::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class BeatFlowDatabase : RoomDatabase() {

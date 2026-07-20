@@ -1,6 +1,9 @@
 package com.example.data
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.util.Log
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import java.text.SimpleDateFormat
@@ -19,6 +22,7 @@ class MusicRepository(private val context: Context) {
     val allSongs: Flow<List<Song>> = songDao.getAllSongs()
     val favoriteSongs: Flow<List<Song>> = songDao.getFavoriteSongs()
     val latestAddedSongs: Flow<List<Song>> = songDao.getLatestAddedSongs()
+    val recentlyPlayedSongs: Flow<List<Song>> = songDao.getRecentlyPlayedSongs()
     val mostPlayedSongs: Flow<List<Song>> = songDao.getMostPlayedSongs()
     val playlists: Flow<List<Playlist>> = playlistDao.getAllPlaylists()
     val listeningStats: Flow<List<ListeningStats>> = statsDao.getAllStats()
@@ -35,6 +39,20 @@ class MusicRepository(private val context: Context) {
         return MusicScanner.scanMusic(context, songDao, currentSettings, onProgress)
     }
 
+    suspend fun triggerDocumentFolderScan(folderUriStr: String, onProgress: (percent: Int, filesFound: Int, status: String) -> Unit = { _, _, _ -> }): Int {
+        val currentSettings = settings.first()
+        val uri = Uri.parse(folderUriStr)
+        try {
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        } catch (e: Exception) {
+            Log.e("MusicRepository", "Failed to take persistent URI permission", e)
+        }
+        return MusicScanner.scanDocumentFolder(context, songDao, uri, currentSettings, onProgress)
+    }
+
     suspend fun deleteSampleSongs() {
         songDao.deleteSampleSongs()
     }
@@ -46,6 +64,7 @@ class MusicRepository(private val context: Context) {
 
     suspend fun recordSongPlay(songId: Long) {
         songDao.incrementPlayCount(songId)
+        songDao.updateLastPlayedAt(songId, System.currentTimeMillis())
         val today = getCurrentDateString()
         statsDao.insertOrUpdateStats(
             ListeningStats(

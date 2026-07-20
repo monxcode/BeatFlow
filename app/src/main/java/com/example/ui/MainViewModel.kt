@@ -50,6 +50,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val latestAddedSongs: StateFlow<List<Song>> = repository.latestAddedSongs
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val recentlyPlayedSongs: StateFlow<List<Song>> = repository.recentlyPlayedSongs
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val mostPlayedSongs: StateFlow<List<Song>> = repository.mostPlayedSongs
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -85,6 +88,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val shuffleEnabled: StateFlow<Boolean> = PlaybackManager.shuffleEnabled
     val repeatMode: StateFlow<Int> = PlaybackManager.repeatMode
     val sleepTimerRemainingSec: StateFlow<Long> = PlaybackManager.sleepTimerRemainingSec
+    val finishSongOnTimerEnd: StateFlow<Boolean> = PlaybackManager.finishSongOnTimerEnd
     val playbackSpeed: StateFlow<Float> = PlaybackManager.playbackSpeed
 
     // Loading State
@@ -99,6 +103,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _scanStatus = MutableStateFlow("Ready to Scan")
     val scanStatus: StateFlow<String> = _scanStatus.asStateFlow()
+
+    private val _showScanOverlay = MutableStateFlow(false)
+    val showScanOverlay: StateFlow<Boolean> = _showScanOverlay.asStateFlow()
+
+    fun setShowScanOverlay(show: Boolean) {
+        _showScanOverlay.value = show
+    }
 
     init {
         // Automatically start background position monitoring
@@ -124,6 +135,28 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 repository.triggerScan { percent, filesFound, status ->
+                    _scanProgress.value = percent
+                    _scanFilesFound.value = filesFound
+                    _scanStatus.value = status
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _scanStatus.value = "Error: ${e.localizedMessage ?: "Unknown scanning error"}"
+            } finally {
+                _isScanning.value = false
+            }
+        }
+    }
+
+    fun triggerDocumentFolderScan(folderUriStr: String) {
+        if (_isScanning.value) return
+        _isScanning.value = true
+        _scanProgress.value = 0
+        _scanFilesFound.value = 0
+        _scanStatus.value = "Starting folder scan..."
+        viewModelScope.launch {
+            try {
+                repository.triggerDocumentFolderScan(folderUriStr) { percent, filesFound, status ->
                     _scanProgress.value = percent
                     _scanFilesFound.value = filesFound
                     _scanStatus.value = status
@@ -209,6 +242,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun cancelSleepTimer() {
         PlaybackManager.cancelSleepTimer()
+    }
+
+    fun setFinishSongOnTimerEnd(value: Boolean) {
+        PlaybackManager.setFinishSongOnTimerEnd(value)
     }
 
     // Search query update

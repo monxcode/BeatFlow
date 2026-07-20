@@ -22,6 +22,9 @@ interface SongDao {
     @Query("SELECT * FROM songs ORDER BY dateAdded DESC")
     fun getLatestAddedSongs(): Flow<List<Song>>
 
+    @Query("SELECT * FROM songs WHERE lastPlayedAt > 0 ORDER BY lastPlayedAt DESC")
+    fun getRecentlyPlayedSongs(): Flow<List<Song>>
+
     @Query("SELECT * FROM songs ORDER BY playCount DESC LIMIT 20")
     fun getMostPlayedSongs(): Flow<List<Song>>
 
@@ -42,6 +45,9 @@ interface SongDao {
 
     @Query("UPDATE songs SET playCount = playCount + 1 WHERE id = :id")
     suspend fun incrementPlayCount(id: Long)
+
+    @Query("UPDATE songs SET lastPlayedAt = :timestamp WHERE id = :id")
+    suspend fun updateLastPlayedAt(id: Long, timestamp: Long)
 
     @Query("UPDATE songs SET isFavorite = :isFavorite WHERE id = :id")
     suspend fun updateFavorite(id: Long, isFavorite: Boolean)

@@ -29,6 +29,7 @@ object PlaybackManager {
     private var positionTrackerJob: Job? = null
     private var sleepTimerJob: Job? = null
     private var bufferedListeningTimeMs = 0L
+    private var lastRecordedSongId: Long? = null
 
     // Memory Cache for extremely fast, zero-allocation metadata lookup
     private val songCache = ConcurrentHashMap<Long, Song>()
@@ -65,6 +66,11 @@ object PlaybackManager {
 
     private val _sleepTimerRemainingSec = MutableStateFlow(0L)
     val sleepTimerRemainingSec: StateFlow<Long> = _sleepTimerRemainingSec.asStateFlow()
+
+    private val _finishSongOnTimerEnd = MutableStateFlow(false)
+    val finishSongOnTimerEnd: StateFlow<Boolean> = _finishSongOnTimerEnd.asStateFlow()
+
+    private var pendingStopOnSongEnd = false
 
     private val _playbackSpeed = MutableStateFlow(1.0f)
     val playbackSpeed: StateFlow<Float> = _playbackSpeed.asStateFlow()
@@ -120,12 +126,34 @@ object PlaybackManager {
                     val song = getSongFromMediaItem(currentItem)
                     _currentSong.value = song
                     _duration.value = player.duration.coerceAtLeast(0)
+
+                    lastRecordedSongId = null
+                    if (player.isPlaying && song != null) {
+                        lastRecordedSongId = song.id
+                        scope.launch {
+                            repository?.recordSongPlay(song.id)
+                        }
+                    }
+
+                    if (pendingStopOnSongEnd) {
+                        pendingStopOnSongEnd = false
+                        player.pause()
+                        cancelSleepTimer()
+                    }
                 }
                 
                 if (events.contains(Player.EVENT_IS_PLAYING_CHANGED)) {
                     _isPlaying.value = player.isPlaying
                     if (player.isPlaying) {
                         startTrackingPosition()
+                        val currentItem = player.currentMediaItem
+                        val song = getSongFromMediaItem(currentItem)
+                        if (song != null && song.id != lastRecordedSongId) {
+                            lastRecordedSongId = song.id
+                            scope.launch {
+                                repository?.recordSongPlay(song.id)
+                            }
+                        }
                     } else {
                         stopTrackingPosition()
                     }
@@ -152,6 +180,10 @@ object PlaybackManager {
                     _duration.value = player.duration.coerceAtLeast(0)
                     if (player.playbackState == Player.STATE_ENDED) {
                         // Playback completed on native end
+                        if (pendingStopOnSongEnd) {
+                            pendingStopOnSongEnd = false
+                            cancelSleepTimer()
+                        }
                     }
                 }
             }
@@ -234,9 +266,8 @@ object PlaybackManager {
         newQueue.forEach { songCache[it.id] = it }
         songCache[song.id] = song
 
-        scope.launch {
-            repository?.recordSongPlay(song.id)
-        }
+        lastRecordedSongId = null
+        pendingStopOnSongEnd = false
 
         val controller = mediaController
         if (controller != null) {
@@ -411,7 +442,7 @@ object PlaybackManager {
                 delay(1000)
                 _sleepTimerRemainingSec.value--
             }
-            fadeOutAndPause(context)
+            onSleepTimerExpired(context)
         }
     }
 
@@ -424,7 +455,23 @@ object PlaybackManager {
                 delay(1000)
                 _sleepTimerRemainingSec.value--
             }
-            fadeOutAndPause(context)
+            onSleepTimerExpired(context)
+        }
+    }
+
+    fun setFinishSongOnTimerEnd(value: Boolean) {
+        _finishSongOnTimerEnd.value = value
+    }
+
+    private fun onSleepTimerExpired(context: Context) {
+        val controller = mediaController
+        if (_finishSongOnTimerEnd.value && controller != null && controller.isPlaying) {
+            pendingStopOnSongEnd = true
+            _sleepTimerRemainingSec.value = 0L
+        } else {
+            scope.launch {
+                fadeOutAndPause(context)
+            }
         }
     }
 
@@ -432,6 +479,7 @@ object PlaybackManager {
         sleepTimerJob?.cancel()
         sleepTimerJob = null
         _sleepTimerRemainingSec.value = 0L
+        pendingStopOnSongEnd = false
         mediaController?.volume = 1.0f
     }
 

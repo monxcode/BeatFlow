@@ -9,7 +9,8 @@ import androidx.room.Index
     tableName = "songs",
     indices = [
         Index(value = ["path"], unique = true),
-        Index(value = ["isFavorite"])
+        Index(value = ["isFavorite"]),
+        Index(value = ["lastPlayedAt"])
     ]
 )
 data class Song(
@@ -25,7 +26,8 @@ data class Song(
     val playCount: Int = 0,
     val isFavorite: Boolean = false,
     val folderName: String,
-    val artworkUri: String? = null
+    val artworkUri: String? = null,
+    val lastPlayedAt: Long = 0L
 )
 
 @Entity(tableName = "playlists")

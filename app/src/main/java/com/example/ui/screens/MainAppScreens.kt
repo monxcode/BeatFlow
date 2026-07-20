@@ -156,11 +156,13 @@ enum class SongSortOrder {
 @Composable
 fun HomeScreenContent(
     viewModel: MainViewModel,
-    onNavigateToProfile: () -> Unit
+    onNavigateToProfile: () -> Unit,
+    onNavigateToScan: () -> Unit
 ) {
     val songs by viewModel.allSongs.collectAsStateWithLifecycle()
     val favorites by viewModel.favoriteSongs.collectAsStateWithLifecycle()
     val latest by viewModel.latestAddedSongs.collectAsStateWithLifecycle()
+    val recentlyPlayed by viewModel.recentlyPlayedSongs.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val filteredSongs by viewModel.filteredSongs.collectAsStateWithLifecycle()
@@ -177,6 +179,7 @@ fun HomeScreenContent(
     }
 
     var selectedCategory by remember { mutableStateOf("All") }
+    var showRecentlyPlayedScreen by remember { mutableStateOf(false) }
     var selectedAlbum by remember { mutableStateOf<String?>(null) }
     var selectedArtist by remember { mutableStateOf<String?>(null) }
     var selectedPlaylist by remember { mutableStateOf<Playlist?>(null) }
@@ -242,12 +245,13 @@ fun HomeScreenContent(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp)
-    ) {
-        Spacer(modifier = Modifier.height(16.dp))
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp)
+        ) {
+            Spacer(modifier = Modifier.height(16.dp))
         
         // 1. FIXED TOP HEADER & PROFILE ICON (Adapts responsive height on scroll)
         Row(
@@ -605,33 +609,72 @@ fun HomeScreenContent(
 
             if (selectedCategory == "All") {
                 // 3. RECENTLY PLAYED / LATEST ADDED HORIZONTAL GRID
-                if (latest.isNotEmpty()) {
-                    item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "Recently Played",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = themeTextMuted
-                            )
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Recently Played",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = themeTextMuted
+                        )
+                        if (recentlyPlayed.isNotEmpty()) {
                             Text(
                                 text = "See All",
                                 fontSize = 12.sp,
                                 color = Accents[settings.accentColorIndex],
-                                fontWeight = FontWeight.Medium
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .clickable { showRecentlyPlayedScreen = true }
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    .testTag("recently_played_see_all")
                             )
                         }
-                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    if (recentlyPlayed.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 12.dp)
+                                .border(1.dp, themeDivider, RoundedCornerShape(12.dp))
+                                .background(Color.White.copy(alpha = 0.02f))
+                                .padding(vertical = 20.dp, horizontal = 16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    imageVector = Icons.Default.History,
+                                    contentDescription = null,
+                                    tint = themeTextFaint,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "No tracks played yet",
+                                    color = themeText,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    text = "Your playback history will appear here",
+                                    color = themeTextMuted,
+                                    fontSize = 10.sp,
+                                    modifier = Modifier.padding(top = 2.dp)
+                                )
+                            }
+                        }
+                    } else {
                         LazyRow(
                             horizontalArrangement = Arrangement.spacedBy(16.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            items(latest.take(5), key = { it.id }) { song ->
-                                val onPlay = remember(song, latest) { { viewModel.playSong(song, latest) } }
+                            items(recentlyPlayed.take(5), key = { it.id }) { song ->
+                                val onPlay = remember(song, recentlyPlayed) { { viewModel.playSong(song, recentlyPlayed) } }
                                 LatestTrackCard(
                                     song = song,
                                     settings = settings,
@@ -769,7 +812,7 @@ fun HomeScreenContent(
                             subtitle = "Press scan to load local tracks!",
                             icon = Icons.Default.MusicNote,
                             actionText = "Scan local files",
-                            onAction = { viewModel.triggerScan() }
+                            onAction = onNavigateToScan
                         )
                     }
                 } else {
@@ -1018,6 +1061,20 @@ fun HomeScreenContent(
                 }
             }
         }
+    }
+}
+        
+    AnimatedVisibility(
+        visible = showRecentlyPlayedScreen,
+        enter = slideInHorizontally(initialOffsetX = { it }) + fadeIn(),
+        exit = slideOutHorizontally(targetOffsetX = { it }) + fadeOut(),
+        modifier = Modifier.fillMaxSize()
+    ) {
+        RecentlyPlayedScreen(
+            viewModel = viewModel,
+            settings = settings,
+            onClose = { showRecentlyPlayedScreen = false }
+        )
     }
 }
 }
@@ -1755,78 +1812,9 @@ fun ProfileScreenContent(viewModel: MainViewModel) {
             }
         }
 
-        // ABOUT DEVELOPER ROW (Mohan Singh Parmar)
-        item {
-            Text(
-                text = "About Developer",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = themeText
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            GlassCard(
-                modifier = Modifier.fillMaxWidth(),
-                isGlassEnabled = settings.isGlassEnabled,
-                isDark = settings.isDarkMode
-            ) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "Mohan Singh Parmar",
-                        fontWeight = FontWeight.Bold,
-                        color = themeText,
-                        fontSize = 16.sp
-                    )
-                    Text(
-                        text = "Android Developer • Cybersecurity & AI Enthusiast",
-                        fontSize = 12.sp,
-                        color = themeTextMuted,
-                        modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
-                    )
 
-                    // Clickable GitHub Row
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(themeCardBg)
-                            .clickable {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/monxcode"))
-                                context.startActivity(intent)
-                            }
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Code,
-                            contentDescription = "GitHub Icon",
-                            tint = Accents[settings.accentColorIndex],
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = "GitHub Row: @monxcode",
-                            fontWeight = FontWeight.SemiBold,
-                            color = themeText,
-                            fontSize = 13.sp,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Icon(Icons.Default.ArrowForward, contentDescription = null, tint = themeTextFaint, modifier = Modifier.size(16.dp))
-                    }
-                }
-            }
-        }
 
-        // Footer Credit
-        item {
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "Made with ❤️ by Mohan Singh Parmar",
-                textAlign = TextAlign.Center,
-                fontSize = 12.sp,
-                color = themeTextFaint,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
+
     }
 
     if (showPhotoOptionsDialog) {
@@ -1951,7 +1939,8 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
     }
 
     var folderInputPath by remember(settings.customScanFolderPath) { mutableStateOf(settings.customScanFolderPath) }
-    var showMusicScannerScreen by remember { mutableStateOf(false) }
+    val showMusicScannerScreen by viewModel.showScanOverlay.collectAsStateWithLifecycle()
+    var showAboutDeveloperScreen by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -2058,7 +2047,7 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { showMusicScannerScreen = true }
+                        .clickable { viewModel.setShowScanOverlay(true) }
                         .padding(vertical = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
@@ -2147,15 +2136,86 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text("Product Version", color = themeTextMuted, fontSize = 12.sp)
-                        Text("v1.0.0 (Production Stable)", color = themeText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("v1.0.1", color = themeText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
+                    HorizontalDivider(color = themeDivider)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                try {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://beatflowmusic.vercel.app/"))
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    android.widget.Toast.makeText(context, "No web browser found on this device.", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            .padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Website", color = themeText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Icon(
+                            imageVector = Icons.Default.OpenInNew,
+                            contentDescription = "Open Website",
+                            tint = Accents[settings.accentColorIndex],
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        // 5. DEVELOPER
+        item {
+            Text("Developer", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = themeText)
+            Spacer(modifier = Modifier.height(12.dp))
+            GlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                isGlassEnabled = settings.isGlassEnabled,
+                isDark = settings.isDarkMode
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showAboutDeveloperScreen = true }
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Accents[settings.accentColorIndex].copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = null,
+                                tint = Accents[settings.accentColorIndex]
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text("About Developer", color = themeText, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                            Text("Learn more about Mohan Singh Parmar", color = themeTextMuted, fontSize = 11.sp)
+                        }
+                    }
+                    Icon(
+                        imageVector = Icons.Default.ArrowForward,
+                        contentDescription = "Navigate",
+                        tint = themeTextFaint,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
         }
     }
 
-        // Dedicated sub-page overlay for Music Scanner
-        if (showMusicScannerScreen) {
+        // Dedicated sub-page overlay for About Developer
+        if (showAboutDeveloperScreen) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -2177,7 +2237,117 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             IconButton(
-                                onClick = { showMusicScannerScreen = false },
+                                onClick = { showAboutDeveloperScreen = false },
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(themeCardBg)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = themeText
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Text(
+                                text = "About Developer",
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = themeText
+                            )
+                        }
+                    }
+
+                    // Developer Information Card (Unchanged functionality, design, typography, spacing, icons)
+                    item {
+                        GlassCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            isGlassEnabled = settings.isGlassEnabled,
+                            isDark = settings.isDarkMode
+                        ) {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Text(
+                                    text = "Mohan Singh Parmar",
+                                    fontWeight = FontWeight.Bold,
+                                    color = themeText,
+                                    fontSize = 16.sp
+                                )
+                                Text(
+                                    text = "Android Developer • Cybersecurity & AI Enthusiast",
+                                    fontSize = 12.sp,
+                                    color = themeTextMuted,
+                                    modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
+                                )
+
+                                // Clickable GitHub Row
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(themeCardBg)
+                                        .clickable {
+                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/monxcode"))
+                                            context.startActivity(intent)
+                                        }
+                                        .padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Code,
+                                        contentDescription = "GitHub Icon",
+                                        tint = Accents[settings.accentColorIndex],
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(
+                                        text = "GitHub Row: @monxcode",
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = themeText,
+                                        fontSize = 13.sp,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Icon(Icons.Default.ArrowForward, contentDescription = null, tint = themeTextFaint, modifier = Modifier.size(16.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Dedicated sub-page overlay for Music Scanner
+        if (showMusicScannerScreen) {
+            val folderPickerLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.OpenDocumentTree()
+            ) { uri ->
+                if (uri != null) {
+                    viewModel.triggerDocumentFolderScan(uri.toString())
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(if (!settings.isDarkMode) LightCanvas else if (settings.isAmoledMode) Color.Black else Color(0xFF121212))
+            ) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    contentPadding = PaddingValues(top = 24.dp, bottom = 120.dp),
+                    verticalArrangement = Arrangement.spacedBy(20.dp)
+                ) {
+                    // Header with back navigation button
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .statusBarsPadding(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(
+                                onClick = { viewModel.setShowScanOverlay(false) },
                                 modifier = Modifier
                                     .size(40.dp)
                                     .clip(CircleShape)
@@ -2284,31 +2454,103 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                                         )
                                     }
                                 } else {
-                                    Icon(
-                                        imageVector = Icons.Default.MusicNote,
-                                        tint = Accents[settings.accentColorIndex].copy(alpha = 0.6f),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(72.dp)
-                                    )
-
-                                    Spacer(modifier = Modifier.height(16.dp))
-
-                                    Text(
-                                        text = if (scanStatus == "Ready to Scan") "Ready to Scan Device" else scanStatus,
-                                        color = themeText,
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                    )
-
-                                    Spacer(modifier = Modifier.height(4.dp))
-
-                                    Text(
-                                        text = "Search local folders for new tracks.",
-                                        color = themeTextMuted,
-                                        fontSize = 12.sp,
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                    )
+                                    val isCompleted = scanStatus.startsWith("Scan Completed!")
+                                    val isError = scanStatus.startsWith("Error:")
+                                    
+                                    if (isCompleted) {
+                                        if (filesFound > 0) {
+                                            Icon(
+                                                imageVector = Icons.Default.CheckCircle,
+                                                tint = Color(0xFF4CAF50),
+                                                contentDescription = null,
+                                                modifier = Modifier.size(72.dp)
+                                            )
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            Text(
+                                                text = "$filesFound songs imported successfully",
+                                                color = themeText,
+                                                fontSize = 16.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                            )
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = "Your library has been successfully updated with new tracks.",
+                                                color = themeTextMuted,
+                                                fontSize = 12.sp,
+                                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                                modifier = Modifier.padding(horizontal = 16.dp)
+                                            )
+                                        } else {
+                                            Icon(
+                                                imageVector = Icons.Default.Info,
+                                                tint = Accents[settings.accentColorIndex].copy(alpha = 0.8f),
+                                                contentDescription = null,
+                                                modifier = Modifier.size(72.dp)
+                                            )
+                                            Spacer(modifier = Modifier.height(16.dp))
+                                            Text(
+                                                text = "No music found in the selected folder",
+                                                color = themeText,
+                                                fontSize = 15.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                            )
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = "Make sure the directory contains supported files (MP3, FLAC, WAV, etc.) and is accessible.",
+                                                color = themeTextMuted,
+                                                fontSize = 12.sp,
+                                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                                modifier = Modifier.padding(horizontal = 16.dp)
+                                            )
+                                        }
+                                    } else if (isError) {
+                                        Icon(
+                                            imageVector = Icons.Default.Error,
+                                            tint = Color(0xFFE57373),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(72.dp)
+                                        )
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Text(
+                                            text = "Scanning Failed",
+                                            color = themeText,
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = scanStatus.substringAfter("Error:"),
+                                            color = Color(0xFFE57373).copy(alpha = 0.9f),
+                                            fontSize = 12.sp,
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                            modifier = Modifier.padding(horizontal = 16.dp)
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Default.MusicNote,
+                                            tint = Accents[settings.accentColorIndex].copy(alpha = 0.6f),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(72.dp)
+                                        )
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Text(
+                                            text = if (scanStatus == "Ready to Scan") "Ready to Scan Device" else scanStatus,
+                                            color = themeText,
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = "Search local folders for new tracks.",
+                                            color = themeTextMuted,
+                                            fontSize = 12.sp,
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                        )
+                                    }
 
                                     Spacer(modifier = Modifier.height(24.dp))
 
@@ -2549,6 +2791,53 @@ fun SettingsScreenContent(viewModel: MainViewModel) {
                                             checkedTrackColor = accentColor
                                         )
                                     )
+                                }
+                            }
+                        }
+                    }
+
+                    // System Folder Browser (SAF)
+                    item {
+                        Text(
+                            text = "System Folder Browser (Recommended)",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = themeText
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        GlassCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            isGlassEnabled = settings.isGlassEnabled,
+                            isDark = settings.isDarkMode
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                                Text(
+                                    text = "Select any folder from internal storage or SD card. BeatFlow will request persistent permission to recursively import all supported audio tracks.",
+                                    color = themeTextMuted,
+                                    fontSize = 12.sp,
+                                    lineHeight = 18.sp
+                                )
+
+                                Button(
+                                    onClick = {
+                                        try {
+                                            folderPickerLauncher.launch(null)
+                                        } catch (e: Exception) {
+                                            e.printStackTrace()
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .glow(Accents[settings.accentColorIndex], radius = 8.dp, alpha = 0.15f),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Accents[settings.accentColorIndex],
+                                        contentColor = Color.Black
+                                    )
+                                ) {
+                                    Icon(Icons.Default.Folder, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Browse & Scan Folder", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -3612,6 +3901,97 @@ fun Modifier.bounceClick(
             )
     } else {
         this
+    }
+}
+
+@Composable
+fun RecentlyPlayedScreen(
+    viewModel: MainViewModel,
+    settings: BeatFlowSettings,
+    onClose: () -> Unit
+) {
+    val recentlyPlayed by viewModel.recentlyPlayedSongs.collectAsStateWithLifecycle()
+    
+    val bg = if (!settings.isDarkMode) LightCanvas else if (settings.isAmoledMode) Color.Black else Color(0xFF121212)
+    
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(bg)
+            .statusBarsPadding()
+    ) {
+        // Top Header Bar
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            IconButton(
+                onClick = onClose,
+                modifier = Modifier.testTag("recently_played_back_button")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ArrowBack,
+                    contentDescription = "Go Back",
+                    tint = themeText
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Column {
+                Text(
+                    text = "Recently Played",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = themeText,
+                    modifier = Modifier.testTag("recently_played_title")
+                )
+                Text(
+                    text = if (recentlyPlayed.isEmpty()) "No tracks" else "${recentlyPlayed.size} ${if (recentlyPlayed.size == 1) "track" else "tracks"}",
+                    fontSize = 12.sp,
+                    color = themeTextMuted
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        if (recentlyPlayed.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                EmptyStatePlaceholder(
+                    title = "No recently played songs",
+                    subtitle = "Any songs you play will appear here in chronological order.",
+                    icon = Icons.Default.History
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .testTag("recently_played_list"),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 120.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(recentlyPlayed, key = { it.id }) { song ->
+                    val onPlay = remember(song, recentlyPlayed) { { viewModel.playSong(song, recentlyPlayed) } }
+                    val onFavoriteToggle = remember(song.id, song.isFavorite) { { viewModel.toggleFavorite(song.id, !song.isFavorite) } }
+                    
+                    SongListItem(
+                        song = song,
+                        settings = settings,
+                        onPlay = onPlay,
+                        onFavoriteToggle = onFavoriteToggle,
+                        viewModel = viewModel
+                    )
+                }
+            }
+        }
     }
 }
 
